@@ -1,4 +1,5 @@
 import geopandas as gpd
+import os
 import rasterio as rst
 import rasterio.plot as rstplot
 import rasterstats as rsts
@@ -10,18 +11,24 @@ import list_dics_functions as ldfun
 
 def reading_shapefiles_exp(): #Returns a list with the path from all the .shp files in the expmaps folder
     #Get the exposition maps folder path
-    expfolderpath=Path.cwd().parent.parent / 'expmaps'
+    folderpath=Path.cwd().parent.parent / 'expmaps'
     #Search for all the .shp files and add them to the list
-    files = [file for file in expfolderpath.rglob('*.shp') if file.is_file()]
+    files = [file for file in folderpath.rglob('*.shp') if file.is_file()]
+    filesdic={}
+    for file in files:
+        filesdic[os.path.splitext(os.path.relpath(file, folderpath))[0]]=file
     # Check crs. Si alguno da error, no utilizar y marcar (AÑADIR)
-    return files
+    return filesdic
 def reading_rasters_haz(): #Returns a list with the path from all the .shp files in the expmaps folder
     #Get the exposition maps folder path
-    expfolderpath=Path.cwd().parent.parent / 'hazmaps'
+    folderpath=Path.cwd().parent.parent / 'hazmaps'
     #Search for all the .shp files and add them to the list
-    files = [file for file in expfolderpath.rglob('*.tif') if file.is_file()]
+    files = [file for file in folderpath.rglob('*.tif') if file.is_file()]
+    filesdic = {}
+    for file in files:
+        filesdic[os.path.splitext(os.path.relpath(file, folderpath))[0]] = file
     # Check crs. Si alguno da error, no utilizar y marcar (AÑADIR)
-    return files
+    return filesdic
 
 def main():
 
@@ -33,9 +40,12 @@ def main():
     # También seleccionamos los nombres que queremos darles a las entradas
     keystokeep=['Valor_Cata']
     keys=['Exposed value (€)']
-    mapsexpdic=ldfun.expshp_to_dic(mapsexp[0],keystokeep,keys)
+    mapsexpdic=ldfun.expshp_to_dic(mapsexp['test_chiqui_WS84'],keystokeep,keys)
     #Get the hazard maps
     mapshaz=reading_rasters_haz()
+    #Add the hazard scenario to the dictionary. EN EL FUTURO, LO HAREMOS CON LOS DISTINTOS ESCENARIOS
+
+    ldfun.add_value_to_dicofidcs(mapsexpdic, 'Hazard scenario', 'flood_2100_tr500_chiqui')
 
 
 
@@ -46,7 +56,7 @@ def main():
     plt.show()"""
 
     #Obtain zonal stats for the hazard raster map into the exposition poligons
-    zonal_stats= rsts.zonal_stats(str(mapsexp[0]),str(mapshaz[0]), stats=['mean'])
+    zonal_stats= rsts.zonal_stats(str(mapsexp['test_chiqui_WS84']),str(mapshaz['flood_2100_tr500_chiqui']), stats=['mean'])
     #Add them to the dictionary of the exposed system
     ldfun.add_listofdics_to_dicofdics(mapsexpdic, zonal_stats,['Impact value (m)'])
 
@@ -67,6 +77,13 @@ def main():
     #Export the dictionary of exposed systems to a .csv file. FALTA ORDEN DE LA TABLA Y CAMPO DEL ESCENARIO
     path=Path.cwd().parent.parent / 'results/zonal_stats.csv'
     ldfun.dictoddics_to_csv(mapsexpdic,path)
+
+    #Add the values to the summary table
+    summarydic={}
+    summarydic['Exposed value (€)']=ldfun.column_sum(mapsexpdic, 'Exposed value (€)')
+    summarydic['Hazard scenario']='flood_2100_tr500_chiqui'
+    summarydic['Consequences value (€)']=ldfun.column_sum(mapsexpdic, 'Consequences value (€)')
+    #Export them to a .csv file
 
 if __name__ == "__main__":
     main()

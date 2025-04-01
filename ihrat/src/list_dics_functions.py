@@ -64,3 +64,12 @@ def expshp_to_dic(path,keystokeep,keys):
 def change_keys_dic(dic,oldkey,newkey):
     for subdic in dic.values():
             subdic[newkey] = subdic.pop(oldkey)
+def add_value_to_dicofidcs(dic,key,value):
+    for subdiccionario in dic.values():
+        subdiccionario[key] = value
+def column_sum(dic, key):
+    sum = 0
+    for entry in dic.values():
+        if key in entry:
+            sum += entry[key]
+    return sum
