@@ -49,17 +49,19 @@ def dictoddics_to_csv(dic,path):
             # Add the outer key as a column if needed
             sub_dict['Building ID'] = key  # Optionally include the outer key as a column
             writer.writerow(sub_dict)
-def expshp_to_dic(path,keystokeep,keys):
+def expshp_to_dic(path,keystokeep,newkeys):
     #EXPLICAR
     expdic = shp_to_dict(path)
+    #Añado a la lista de keystokeep la cabedecera de la geometría
+    keystokeep.append('geometry')
     # Iteramos sobre el diccionario principal
     for dic in expdic.values():
         # Filtramos el diccionario para conservar solo las claves indicadas
         for key in list(dic.keys()):
             if key not in keystokeep:
                 del dic[key]  # Eliminamos las claves que no están en claves_a_conservar
-    for i in range(len(keystokeep)):
-        change_keys_dic(expdic, keystokeep[i], keys[i])
+    for i in range(len(newkeys)):
+        change_keys_dic(expdic, keystokeep[i], newkeys[i])
     return expdic
 def change_keys_dic(dic,oldkey,newkey):
     for subdic in dic.values():
@@ -81,3 +83,19 @@ def dic_to_csv(dic,path):
         escritor.writeheader()
         # Escribimos la fila con los valores del diccionario
         escritor.writerow(dic)
+
+def dic_to_shp(dic,path,crs):
+    a=crs
+    #Convertir diccionario de diccionarios a diccionario de listas
+    columnas = {key: [] for key in dic[list(dic.keys())[0]].keys()}
+    # Recorremos el diccionario de diccionarios para extraer las columnas
+    for fila in dic.values():
+        for columna, valor in fila.items():
+            columnas[columna].append(valor)
+
+    # 2. Crear un GeoDataFrame a partir del diccionario
+    gdf = gpd.GeoDataFrame(columnas, geometry='geometry')
+    # 3. Definir el sistema de referencia espacial
+    gdf.set_crs(crs)
+    # 4. Guardar el GeoDataFrame como un archivo shapefile
+    gdf.to_file(path)
