@@ -85,17 +85,21 @@ def dic_to_csv(dic,path):
         escritor.writerow(dic)
 
 def dic_to_shp(dic,path,crs):
-    a=crs
     #Convertir diccionario de diccionarios a diccionario de listas
     columnas = {key: [] for key in dic[list(dic.keys())[0]].keys()}
     # Recorremos el diccionario de diccionarios para extraer las columnas
     for fila in dic.values():
         for columna, valor in fila.items():
             columnas[columna].append(valor)
+    #Change the key values to less than 10 characters
+    newkeys={'Building ID':'Build Id','Consequences value (€)':'Cons val €','Damage fraction':'Dam frac',\
+             'Exposed value (€)':'Exp val €','Hazard scenario':'Haz scen','Impact value (m)':'Imp val m',\
+             'geometry':'geometry'}
+    columdic = {newkeys[key]: value for key, value in columnas.items()}
 
     # 2. Crear un GeoDataFrame a partir del diccionario
-    gdf = gpd.GeoDataFrame(columnas, geometry='geometry')
+    gdf = gpd.GeoDataFrame(columdic, geometry='geometry')
     # 3. Definir el sistema de referencia espacial
-    gdf.set_crs(crs)
+    gdf=gdf.set_crs(crs)
     # 4. Guardar el GeoDataFrame como un archivo shapefile
     gdf.to_file(path)
