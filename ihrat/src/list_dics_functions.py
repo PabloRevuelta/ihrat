@@ -73,3 +73,11 @@ def column_sum(dic, key):
         if key in entry:
             sum += entry[key]
     return sum
+def dic_to_csv(dic,path):
+    # Abrimos el archivo CSV en modo escritura
+    with open(path, mode='w', newline='') as file:
+        escritor = csv.DictWriter(file, fieldnames=dic.keys())
+        # Escribimos las cabeceras
+        escritor.writeheader()
+        # Escribimos la fila con los valores del diccionario
+        escritor.writerow(dic)

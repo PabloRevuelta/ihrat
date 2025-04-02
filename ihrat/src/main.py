@@ -83,7 +83,9 @@ def main():
     summarydic['Exposed value (€)']=ldfun.column_sum(mapsexpdic, 'Exposed value (€)')
     summarydic['Hazard scenario']='flood_2100_tr500_chiqui'
     summarydic['Consequences value (€)']=ldfun.column_sum(mapsexpdic, 'Consequences value (€)')
-    #Export them to a .csv file
+    #Export them to a .csv file.  FALTA ORDEN DE LA TABLA Y CAMPO DEL ESCENARIO
+    path = Path.cwd().parent.parent / 'results/zonal_stats_summary.csv'
+    ldfun.dic_to_csv(summarydic, path)
 
 if __name__ == "__main__":
     main()
