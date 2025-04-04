@@ -1,10 +1,10 @@
 import geopandas as gpd
 import csv
 
-def shp_to_dict(file):
+def shp_to_dict(file,key):
     #Export the .shp file into a geo data frame and then into a dictionary
     geodataframe = gpd.read_file(file)
-    dict = geodataframe.set_index('ID_PARCELA').T.to_dict('dict')
+    dict = geodataframe.set_index(key).T.to_dict('dict')
     return dict
 def add_listofdics_to_dicofdics(dic,listofdics,newkeys):
     #Add to each entry of a dictionary of dictionaries the values stored in a list of dictionaries.
@@ -31,7 +31,7 @@ def product_columns_dic(dic,key1,key2):
         product = subdic[key1] * subdic[key2]
         product_dic[key] = product
     return product_dic
-def dictoddics_to_csv(dic,path):
+def dicofddics_to_csv(dic,path):
     #Export the content of dictionary to a .csv file. Each entry is in a single row, they keys are in the first and
     #the keys of the sub dictionaries are the headers. (ORDENAR FALTA)
     with open(path, mode='w', newline='') as file:
@@ -51,7 +51,7 @@ def dictoddics_to_csv(dic,path):
             writer.writerow(sub_dict)
 def expshp_to_dic(path,keystokeep,newkeys):
     #EXPLICAR
-    expdic = shp_to_dict(path)
+    expdic = shp_to_dict(path,keystokeep[0])
     #Añado a la lista de keystokeep la cabedecera de la geometría
     keystokeep.append('geometry')
     # Iteramos sobre el diccionario principal
@@ -61,7 +61,7 @@ def expshp_to_dic(path,keystokeep,newkeys):
             if key not in keystokeep:
                 del dic[key]  # Eliminamos las claves que no están en claves_a_conservar
     for i in range(len(newkeys)):
-        change_keys_dic(expdic, keystokeep[i], newkeys[i])
+        change_keys_dic(expdic, keystokeep[i+1], newkeys[i])
     return expdic
 def change_keys_dic(dic,oldkey,newkey):
     for subdic in dic.values():
