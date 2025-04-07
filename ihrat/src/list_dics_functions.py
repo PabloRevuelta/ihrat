@@ -40,30 +40,31 @@ def dicofddics_to_csv(dic,path):
         for sub_dict in dic.values():
             fieldnames.update(sub_dict.keys())
         fieldnames = list(fieldnames)
-        fieldnames.insert(0, 'Building ID')  # Include the 'Key' column if needed
+        fieldnames.insert(0, 'Build_ID')  # Include the 'Key' column if needed
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         # Write the header row (keys of the inner dictionaries)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
         for key, sub_dict in dic.items():
             # Add the outer key as a column if needed
-            sub_dict['Building ID'] = key  # Optionally include the outer key as a column
+            sub_dict['Build_ID'] = key  # Optionally include the outer key as a column
             writer.writerow(sub_dict)
 def expshp_to_dic(path,keystokeep,newkeys):
-    #EXPLICAR
+    #Obtain a dic from the shapefile with all the system data
     expdic = shp_to_dict(path,keystokeep[0])
-    #Añado a la lista de keystokeep la cabedecera de la geometría
+    #Add the geometry nad type keys to the keys we want to keep
     keystokeep.append('geometry')
-    # Iteramos sobre el diccionario principal
+    keystokeep.append('Type')
+    #Remove the unwanted entries
     for dic in expdic.values():
-        # Filtramos el diccionario para conservar solo las claves indicadas
         for key in list(dic.keys()):
             if key not in keystokeep:
-                del dic[key]  # Eliminamos las claves que no están en claves_a_conservar
+                del dic[key]
     for i in range(len(newkeys)):
         change_keys_dic(expdic, keystokeep[i+1], newkeys[i])
     return expdic
 def change_keys_dic(dic,oldkey,newkey):
+    #Detectsc if oldkey is in dic. If not, does nothing
     for subdic in dic.values():
             subdic[newkey] = subdic.pop(oldkey)
 def add_value_to_dicofidcs(dic,key,value):
@@ -84,21 +85,34 @@ def dic_to_csv(dic,path):
         # Escribimos la fila con los valores del diccionario
         escritor.writerow(dic)
 
+def listofddics_to_csv(list,path):
+    #Export the content of a list of dictionaries to a .csv file. Each entry is in a single row. (ORDENAR FALTA)
+    with open(path, mode='w', newline='') as file:
+        # Get all unique fieldnames from the dictionaries and write them as first row
+        fieldnames=list[0].keys()
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        # Write the header row (keys of the inner dictionaries)
+        writer.writeheader()
+        # Write each row (each inner dictionary as a row)
+        writer.writerows(list)
+
 def dic_to_shp(dic,path,crs):
+
     #Convertir diccionario de diccionarios a diccionario de listas
     columnas = {key: [] for key in dic[list(dic.keys())[0]].keys()}
     # Recorremos el diccionario de diccionarios para extraer las columnas
     for fila in dic.values():
         for columna, valor in fila.items():
             columnas[columna].append(valor)
-    #Change the key values to less than 10 characters
-    newkeys={'Building ID':'Build Id','Consequences value (€)':'Cons val €','Damage fraction':'Dam frac',\
-             'Exposed value (€)':'Exp val €','Hazard scenario':'Haz scen','Impact value (m)':'Imp val m',\
+    #Temporalmente anulado por trabajar con los nombres buenos de las columnas
+    """#Change the key values to less than 10 characters.
+    newkeys={'Building ID':'Build Id','Consequences value (€)':'Cons val €','Damage fraction':'Dam frac',
+             'Exposed value (€)':'Exp val €','Hazard scenario':'Haz scen','Impact value (m)':'Imp val m',
              'geometry':'geometry'}
-    columdic = {newkeys[key]: value for key, value in columnas.items()}
+    columdic = {newkeys[key]: value for key, value in columnas.items()}"""
 
     # 2. Crear un GeoDataFrame a partir del diccionario
-    gdf = gpd.GeoDataFrame(columdic, geometry='geometry')
+    gdf = gpd.GeoDataFrame(columnas, geometry='geometry')
     # 3. Definir el sistema de referencia espacial
     gdf=gdf.set_crs(crs)
     # 4. Guardar el GeoDataFrame como un archivo shapefile
