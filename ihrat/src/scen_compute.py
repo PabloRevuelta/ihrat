@@ -1,4 +1,5 @@
 import list_dics_functions as ldfun
+import damage_functions as dmfun
 import rasterstats as rsts
 from pathlib import Path
 
@@ -13,15 +14,12 @@ def scen_compute(expname,expdic,maindic,scenname,pathscen):
     for item in zonal_stats:
         if item['mean'] is None:
             item['mean']=0
-    ldfun.add_listofdics_to_dicofdics(maindic, zonal_stats, ['IMP VAL'])
+    ldfun.add_listofdics_to_dicofdics(maindic, zonal_stats, ['IMP_VAL'])
 
-    #Calculamos el porecentaje de impacto aplicando las curvas de vulnerabilidad. Curva y=0.33x si 0<=x<=3
-    #meter condicionantes para ver los casos menores que 0 o mayores que 3 o errores. (ESTO LO DEJAMOS ASÍ PORQUE
-    #ES PROVISIONAL, YA QUE LUEGO HABRÁ QUE ELEGIR LAS FUNCIONES DE VULN DE UNA LISTA). Lo añadimos al diccionario
-    damage_perc_list = []
-    for i in range(len(zonal_stats)):
-        damage_perc_list.append(0.33 * zonal_stats[i]['mean'])
-    ldfun.add_list_to_dicofdics(maindic, damage_perc_list, 'DAM_FRAC')
+    #Compute for each building of the system and add to the dic the damage fraction applying a damage curve
+    #selected in the input file
+    for indiv_build_dic in maindic.values():
+        dmfun.apply_damage_fun(indiv_build_dic)
 
     # Compute the economic impact, multiplying the damage percentage by the value of each building of the system.
     impact_value_dic = ldfun.product_columns_dic(maindic, 'DAM_FRAC', 'EXP_VALUE')

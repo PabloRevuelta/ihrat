@@ -48,7 +48,8 @@ def main():
         # bien directamente en los archivos de input en un pre-formateo de los datos.
 
         #In the shapefiles, the attributes headers must be pre-processed to match the used by the program, those being:
-        #Buildings: BUILD_ID, Population number/Building value: EXP_VALUE, Tipe of system: TYPE (POP, BUILD)
+        #Buildings: BUILD_ID, Population number/Building value: EXP_VALUE, Tipe of system: TYPE (POP, BUILD),
+        #Damage function: DAM_FUN
 
         #TEMPORAL HASTA VER LAS 3 OPCIONES
 
