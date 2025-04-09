@@ -50,20 +50,18 @@ def main():
         #In the shapefiles, the attributes headers must be pre-processed to match the used by the program, those being:
         #Buildings: BUILD_ID, Population number/Building value: EXP_VALUE, Tipe of system: TYPE (POP, BUILD),
         #Damage function: DAM_FUN
-
-        #TEMPORAL HASTA VER LAS 3 OPCIONES
-
         indiv_dic = ldfun.shp_to_dict(expsystdic[system]['path'], 'BUILD_ID')
         """indiv_dic= ldfun.expshp_to_dic(expsystdic[system]['path'],keys)"""
 
         print(system)
 
         for scen in scendic.keys():
-
-            scensum = scen_compute.scen_compute(system, expsystdic[system], indiv_dic, scen,
+            scensum={'SYSTEM':system, 'TYPE':indiv_dic[next(iter(indiv_dic))]['TYPE']}
+            results=scen_compute.scen_compute(system, expsystdic[system], indiv_dic, scen,
                                                 scendic[scen])
-            scensum['SYSTEM']=system
+            scensum['EXP_VALUE']=results['EXP_VALUE']
             scensum['SCEN']=scen
+            scensum['IMP_DAMAGE'] = results['IMP_DAMAGE']
             summarydic.append(scensum)
 
             print(scen)
