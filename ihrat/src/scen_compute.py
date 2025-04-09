@@ -25,15 +25,15 @@ def scen_compute(expname,expdic,maindic,scenname,pathscen):
     impact_value_dic = ldfun.product_columns_dic(maindic, 'DAM_FRAC', 'EXP_VALUE')
     ldfun.add_dic_to_dicofdics(maindic, impact_value_dic, 'IMP_DAMAGE')
 
-    # Export the dictionary of exposed systems to a .csv file. FALTA ORDEN DE LA TABLA
-    namefile_csv=expname+scenname+'.csv'
-    path = Path.cwd().parent.parent / 'results/csvs'/namefile_csv
-    ldfun.dicofddics_to_csv(maindic, path)
-
     # Create a new shapefile adding the impact scenario, impact value, damage fraction and consequences value
     namefile_shp=expname+scenname+'.shp'
     path = Path.cwd().parent.parent / 'results/shps' / namefile_shp
     ldfun.dic_to_shp(maindic, path, expdic['crs'])
+
+    # Export the dictionary of exposed systems to a .csv file. FALTA ORDEN DE LA TABLA
+    namefile_csv = expname + scenname + '.csv'
+    path = Path.cwd().parent.parent / 'results/csvs' / namefile_csv
+    ldfun.dicofddics_to_csv(maindic, path)
 
     return {'EXP_VALUE':ldfun.column_sum(maindic, 'EXP_VALUE'),
                   'IMP_DAMAGE':ldfun.column_sum(maindic, 'IMP_DAMAGE')}

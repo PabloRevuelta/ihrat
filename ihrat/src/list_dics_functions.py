@@ -35,25 +35,26 @@ def dicofddics_to_csv(dic,path):
     #Export the content of dictionary to a .csv file. Each entry is in a single row, they keys are in the first and
     #the keys of the sub dictionaries are the headers. (ORDENAR FALTA)
     with open(path, mode='w', newline='') as file:
-        # Get all unique fieldnames from the dictionaries and write them as first row
+        """# Get all unique fieldnames from the dictionaries and write them as first row
         fieldnames = set()
         for sub_dict in dic.values():
             fieldnames.update(sub_dict.keys())
         fieldnames = list(fieldnames)
-        fieldnames.insert(0, 'Build_ID')  # Include the 'Key' column if needed
+        fieldnames.insert(0, 'Build_ID')  # Include the 'Key' column if needed"""
+
+        fieldnames=['BUILD_ID','TYPE','EXP_VALUE','HAZ_SCEN','IMP_VAL','DAM_FUN','DAM_FRAC','IMP_DAMAGE']
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         # Write the header row (keys of the inner dictionaries)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
         for key, sub_dict in dic.items():
-            # Add the outer key as a column if needed
-            sub_dict['Build_ID'] = key  # Optionally include the outer key as a column
-            writer.writerow(sub_dict)
+            row = {col: sub_dict.get(col, '') for col in fieldnames}
+            row['BUILD_ID'] = key
+            writer.writerow(row)
 def expshp_to_dic(path,keystokeep,newkeys):
     #Obtain a dic from the shapefile with all the system data
     expdic = shp_to_dict(path,keystokeep[0])
-    #Add the geometry nad type keys to the keys we want to keep
-    keystokeep.append('geometry')
+    #Add the geometry and type keys to the keys we want to keep
     keystokeep.append('Type')
     #Remove the unwanted entries
     for dic in expdic.values():
@@ -100,10 +101,13 @@ def dic_to_shp(dic,path,crs):
 
     #Convertir diccionario de diccionarios a diccionario de listas
     columnas = {key: [] for key in dic[list(dic.keys())[0]].keys()}
+    columnas['BUILD_ID']=[]
     # Recorremos el diccionario de diccionarios para extraer las columnas
-    for fila in dic.values():
+    for key,fila in dic.items():
+        columnas['BUILD_ID'].append(key)
         for columna, valor in fila.items():
             columnas[columna].append(valor)
+    #Añadimos la ID de los edificios
     #Temporalmente anulado por trabajar con los nombres buenos de las columnas
     """#Change the key values to less than 10 characters.
     newkeys={'Building ID':'Build Id','Consequences value (€)':'Cons val €','Damage fraction':'Dam frac',
@@ -113,6 +117,7 @@ def dic_to_shp(dic,path,crs):
 
     # 2. Crear un GeoDataFrame a partir del diccionario
     gdf = gpd.GeoDataFrame(columnas, geometry='geometry')
+    gdf = gdf[['BUILD_ID', 'TYPE', 'EXP_VALUE', 'HAZ_SCEN', 'IMP_VAL', 'DAM_FUN', 'DAM_FRAC', 'IMP_DAMAGE','geometry']]
     # 3. Definir el sistema de referencia espacial
     gdf=gdf.set_crs(crs)
     # 4. Guardar el GeoDataFrame como un archivo shapefile

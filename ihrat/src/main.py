@@ -50,9 +50,6 @@ def main():
         #In the shapefiles, the attributes headers must be pre-processed to match the used by the program, those being:
         #Buildings: BUILD_ID, Population number/Building value: EXP_VALUE, Tipe of system: TYPE (POP, BUILD),
         #Damage function: DAM_FUN
-
-        #TEMPORAL HASTA VER LAS 3 OPCIONES
-
         indiv_dic = ldfun.shp_to_dict(expsystdic[system]['path'], 'BUILD_ID')
         """indiv_dic= ldfun.expshp_to_dic(expsystdic[system]['path'],keys)"""
 
