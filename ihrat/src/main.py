@@ -1,77 +1,82 @@
-import geopandas as gpd
-import os
 from pathlib import Path
 import list_dics_functions as ldfun
 import scen_compute
-
-def reading_shapefiles_exp(): #Returns a list with the path from all the .shp files in the expmaps folder
-    #Get the exposition maps folder path
-    folderpath=Path.cwd().parent.parent / 'expmaps'
-    #Search for all the .shp files and add them to the list
-    files = [file for file in folderpath.rglob('*.shp') if file.is_file()]
-    filesdic={}
-    for file in files:
-        filesdic[os.path.splitext(os.path.relpath(file, folderpath))[0]]={'path':file,'crs':gpd.read_file(file).crs}
-
-    # Check crs. Si alguno da error, no utilizar y marcar (AÑADIR)
-    return filesdic
-def reading_rasters_haz(): #Returns a list with the path from all the .shp files in the expmaps folder
-    #Get the exposition maps folder path
-    folderpath=Path.cwd().parent.parent / 'hazmaps'
-    #Search for all the .shp files and add them to the list
-    files = [file for file in folderpath.rglob('*.tif') if file.is_file()]
-    filesdic = {}
-    for file in files:
-        filesdic[os.path.splitext(os.path.relpath(file, folderpath))[0]] = file
-    # Check crs. Si alguno da error, no utilizar y marcar (AÑADIR)
-    return filesdic
-
+import input_reading
+import damage_functions as dmfun
+import outputs
 
 
 def main():
 
-    #Get the exposition maps paths from the expmaps folder files
-    #and the hazard scenarios maps paths and crs from the hazmaps folder files
-    expsystdic = reading_shapefiles_exp()
-    scendic = reading_rasters_haz()
+    #Get the exposition maps paths and crs from the expmaps folder files
+    #and the hazard scenarios maps paths from the hazmaps folder files
+    expsystdic = input_reading.reading_shapefiles_exp()
+    scendic = input_reading.reading_folder_files(Path.cwd().parent.parent / 'hazmaps','.tif')
 
     # Create dic for the summary table
     summarydic = []
 
-    #Main loop. Travel through every system exposed and compute the risk analysands for all hazard scenarios.
+    #We define the keys all the inner dictionaries are going to work with. The input .shp files need to be
+    #pre-processed to use the same keys are their atribute headers
+    keysdic = {'Elements ID': 'BUILD_ID', 'Exposed value': 'EXP_VALUE', 'Type of system': 'TYPE',
+               'Damage function': 'DAM_FUN', 'Hazard scenario': 'HAZ_SCEN', 'Impact value':'IMP_VAL',
+               'Damage fraction':'DAM_FRAC', 'Impact damage': 'IMP_DAMAGE'}
+
+    #Main loop. Travel through every system exposed and compute the risk analysis for all hazard scenarios.
     #Then, export the results to individual .csv files and .shp files. Also add the aggregate
     #results to the summary dic
     for system in expsystdic.keys():
 
-        # We need the attribute keys of the wanted attributes from the shapefile and the keys we want to use in the outputs.
-        # VER COMO HACEMOS CON LOS NOMBRS DE LAS COLUMNAS EN LOS INPUTS. Si los pasamos previos o los ponemos
-        # bien directamente en los archivos de input en un pre-formateo de los datos.
-
-        #In the shapefiles, the attributes headers must be pre-processed to match the used by the program, those being:
-        #Buildings: BUILD_ID, Population number/Building value: EXP_VALUE, Tipe of system: TYPE (POP, BUILD),
-        #Damage function: DAM_FUN
-        indiv_dic = ldfun.shp_to_dict(expsystdic[system]['path'], 'BUILD_ID')
-        """indiv_dic= ldfun.expshp_to_dic(expsystdic[system]['path'],keys)"""
+        #Create a dictionary of the exposed system from the shapefile. Each entry is a building, Building IDs
+        #being the keys. Each building has the exposed system type, the exposed value, the damage function to apply
+        #and the geometric coordinates of the polygon.
+        system_dic = input_reading.shp_to_dic(expsystdic[system]['path'], keysdic['Elements ID'])
 
         print(system)
 
         for scen in scendic.keys():
-            scensum={'SYSTEM':system, 'TYPE':indiv_dic[next(iter(indiv_dic))]['TYPE']}
-            results=scen_compute.scen_compute(system, expsystdic[system], indiv_dic, scen,
-                                                scendic[scen])
-            scensum['EXP_VALUE']=results['EXP_VALUE']
+
+            #Entry for the summary dictionary of this scenario. Add the file system name, the type of system and the
+            #aggregated exposed value
+            scensum={'SYSTEM':system, keysdic['Type of system']:system_dic[next(iter(system_dic))]['TYPE'],
+                     keysdic['Exposed value']:ldfun.column_sum(system_dic, 'EXP_VALUE')}
+
+            #Add the hazard scenario
+            ldfun.add_value_to_dicofidcs(system_dic, keysdic['Hazard scenario'], scen)
+
+            #Compute the mean value of the hazard raster map in each exposition polygon as the impact value on each
+            #element of the system and add the results to the dictionary
+            scen_compute.impact_mean_calc(expsystdic[system]['path'],scendic[scen],system_dic,keysdic['Impact value'])
+
+            #Compute the damage fraction as a result of the impact value and add it to the dic. The damage fraction
+            #is computed applying a damage curve selected in the input file for each individual element of the system
+            for indiv_element_dic in system_dic.values():
+                dmfun.apply_damage_fun(indiv_element_dic,keysdic['Damage function'],keysdic['Damage fraction'],
+                                       keysdic['Impact value'])
+
+            #Compute the economic value of the impact and add it to the dic.
+            scen_compute.imp_damage_compute(system_dic,keysdic['Damage fraction'],
+                                            keysdic['Exposed value'], keysdic['Impact damage'])
+
+            #Export the results dic into a shapefile
+            outputs.shapefile_output(system+scen,system_dic,keysdic,expsystdic[system]['crs'])
+
+            #Export the results dic in a csv file
+            outputs.csv_output(system + scen, system_dic, keysdic)
+
+            #Add to the summary dictionary of this scenario the name of the scenario raster file and the aggregated
+            #damage caused by the impact
             scensum['SCEN']=scen
-            scensum['IMP_DAMAGE'] = results['IMP_DAMAGE']
+            scensum['IMP_DAMAGE'] = ldfun.column_sum(system_dic, 'IMP_DAMAGE')
+
+            #add the summary dictionary of this scenario to the summary dictionary
             summarydic.append(scensum)
 
             print(scen)
 
-
-
-
     #Export them to a .csv file.
     path = Path.cwd().parent.parent / 'results/csvs/manga_exposicion_summary.csv'
-    ldfun.listofddics_to_csv(summarydic, path)
+    outputs.listofddics_to_csv(summarydic, path)
 
 
 if __name__ == "__main__":

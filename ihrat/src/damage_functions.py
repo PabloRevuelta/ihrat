@@ -1,6 +1,7 @@
-def apply_damage_fun(indiv_build_dic):
-    dam_fun=globals().get(indiv_build_dic['DAM_FUN'])
-    indiv_build_dic['DAM_FRAC'] = dam_fun(indiv_build_dic['IMP_VAL'])
+def apply_damage_fun(indiv_element_dic,dmfunkey,dmfrackey,impvalkey):
+    #Compute tha damage fraction on the exposed value of a given element of the exposed system and add it to the dic
+    dam_fun=globals().get(indiv_element_dic[dmfunkey])
+    indiv_element_dic[dmfrackey]=round(dam_fun(indiv_element_dic[impvalkey]), 3)
 
 def pop_A(imp_val):
     if imp_val<0.3:
