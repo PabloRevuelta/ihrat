@@ -1,7 +1,5 @@
 import list_dics_functions as ldfun
-import damage_functions as dmfun
 import rasterstats as rsts
-from pathlib import Path
 
 def impact_mean_calc(pathexp,pathscen,system_dic,key):
     # Obtain zonal stats for the hazard raster map into the exposition polygons and add them to the dic. We change the

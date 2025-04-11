@@ -18,9 +18,9 @@ def main():
 
     #We define the keys all the inner dictionaries are going to work with. The input .shp files need to be
     #pre-processed to use the same keys are their atribute headers
-    keysdic = {'Elements ID': 'BUILD_ID', 'Exposed value': 'EXP_VALUE', 'Type of system': 'TYPE',
-               'Damage function': 'DAM_FUN', 'Hazard scenario': 'HAZ_SCEN', 'Impact value':'IMP_VAL',
-               'Damage fraction':'DAM_FRAC', 'Impact damage': 'IMP_DAMAGE'}
+    keysdic = {'Exposed system':'SYSTEM','Elements ID': 'BUILD_ID', 'Exposed value': 'EXP_VALUE', 'Type of system': 'TYPE',
+               'Damage function': 'DAM_FUN', 'Section indentificator':'CUSEC', 'Hazard scenario': 'HAZ_SCEN',
+               'Impact value':'IMP_VAL','Damage fraction':'DAM_FRAC', 'Impact damage': 'IMP_DAMAGE'}
 
     #Main loop. Travel through every system exposed and compute the risk analysis for all hazard scenarios.
     #Then, export the results to individual .csv files and .shp files. Also add the aggregate
@@ -38,7 +38,7 @@ def main():
 
             #Entry for the summary dictionary of this scenario. Add the file system name, the type of system and the
             #aggregated exposed value
-            scensum={'SYSTEM':system, keysdic['Type of system']:system_dic[next(iter(system_dic))]['TYPE'],
+            scensum={keysdic['Exposed system']:system, keysdic['Type of system']:system_dic[next(iter(system_dic))]['TYPE'],
                      keysdic['Exposed value']:ldfun.column_sum(system_dic, 'EXP_VALUE')}
 
             #Add the hazard scenario
@@ -66,11 +66,17 @@ def main():
 
             #Add to the summary dictionary of this scenario the name of the scenario raster file and the aggregated
             #damage caused by the impact
-            scensum['SCEN']=scen
-            scensum['IMP_DAMAGE'] = ldfun.column_sum(system_dic, 'IMP_DAMAGE')
+            scensum[keysdic['Hazard scenario']]=scen
+            scensum[keysdic['Impact damage']] = ldfun.column_sum(system_dic, keysdic['Impact damage'])
 
-            #add the summary dictionary of this scenario to the summary dictionary
+            #Export the results in a csv file with data aggregated in categories determined by the Section
+            #indentificator column from the shapefile data
+            outputs.partial_csv_output(system + scen, system_dic, keysdic, scensum)
+
+            #Add the summary dictionary of this scenario to the summary dictionary
             summarydic.append(scensum)
+
+
 
             print(scen)
 

@@ -1,4 +1,3 @@
-import csv
 
 def add_listofdics_to_dicofdics(dic,listofdics,newkeys):
     #Add to each entry of a dictionary of dictionaries the values stored in a list of dictionaries.
