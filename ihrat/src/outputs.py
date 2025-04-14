@@ -1,7 +1,7 @@
 from pathlib import Path
 import geopandas as gpd
 import csv
-import list_dics_functions as ldfun
+import main
 
 
 def shapefile_output(filename,dic,keysdic,crs):
@@ -21,9 +21,9 @@ def shapefile_output(filename,dic,keysdic,crs):
 
     #Create a geodataframe from the dic of lists
     gdf = gpd.GeoDataFrame(columnsdic, geometry='geometry')
-    gdf = gdf[[keysdic['Elements ID'], keysdic['Type of system'], keysdic['Exposed value'], keysdic['Hazard scenario'],
-               keysdic['Impact value'], keysdic['Damage function'], keysdic['Damage fraction'], keysdic['Impact damage'],
-               'geometry']]
+    gdf = gdf[[keysdic['Elements ID'], keysdic['Type of system'], keysdic['Section identificator'],
+               keysdic['Exposed value'], keysdic['Hazard scenario'],keysdic['Impact value'], keysdic['Damage function'],
+               keysdic['Damage fraction'], keysdic['Impact damage'],'geometry']]
 
     #Define the crs for the file
     gdf=gdf.set_crs(crs)
@@ -31,72 +31,63 @@ def shapefile_output(filename,dic,keysdic,crs):
     #Save the gdf a shapefile
     gdf.to_file(path)
 
-def csv_output(filename,dic,keysdic):
+def csv_output(filename,dic,keysdic,keysoutputdic):
     #Export the dictionary with the results of the risk analysis to a .csv file. Each entry is in a single row,
     #they keys are in the first and the keys of the sub dictionaries are the headers.
 
     namefile = filename + '.csv'
     path = Path.cwd().parent.parent / 'results/csvs' / namefile
 
+    fields = ['Elements ID', 'Type of system', 'Section identificator', 'Exposed value', 'Hazard scenario',
+              'Impact value', 'Damage function', 'Damage fraction', 'Impact damage']
+    newfieldnames = main.output_fields_keys(dic,fields,keysdic,keysoutputdic)
+
     with open(path, mode='w', newline='') as file:
-        fieldnames = [keysdic['Elements ID'], keysdic['Type of system'], keysdic['Exposed value'],
-                      keysdic['Hazard scenario'], keysdic['Impact value'], keysdic['Damage function'],
-                      keysdic['Damage fraction'], keysdic['Impact damage']]
-        writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=';')
-        # Write the header row (keys of the inner dictionaries)
+        writer = csv.DictWriter(file, fieldnames=newfieldnames, delimiter=';')
+        # Write the header row (field output headers)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
         for key, sub_dict in dic.items():
-            row = {col: sub_dict.get(col, '') for col in fieldnames}
-            row[keysdic['Elements ID']] = key
+            row={}
+            row[newfieldnames[0]] = key
+            for i in range(1,len(newfieldnames)):
+                row[newfieldnames[i]]=sub_dict[keysdic[fields[i]]]
             writer.writerow(row)
 
-def listofddics_to_csv(list,path):
+def summary_output(system_dic,summarydic,keysdic,keysoutputdic):
+
+    path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
+
+    fields = ['Exposed system','Type of system','Exposed value', 'Hazard scenario','Impact damage']
+    newfieldnames=main.output_fields_keys(system_dic,fields,keysdic,keysoutputdic)
+
+    listofddics_to_csv(summarydic,fields,newfieldnames,path,keysdic)
+
+def partial_agg_output(system_dic,summarydic,keysdic,keysoutputdic):
+
+    path = Path.cwd().parent.parent / 'results/csvs/partial_agg_result.csv'
+
+    fields = ['Exposed system', 'Type of system', 'Section identificator','Exposed value', 'Hazard scenario',
+              'Impact damage']
+    newfieldnames = main.output_fields_keys(system_dic, fields, keysdic, keysoutputdic)
+
+    listofddics_to_csv(summarydic, fields, newfieldnames, path, keysdic)
+def listofddics_to_csv(list,fields,newfieldnames,path,keysdic):
     #Export the content of a list of dictionaries to a .csv file. Each entry is in a single row.
+
     with open(path, mode='w', newline='') as file:
         # Get all unique fieldnames from the dictionaries and write them as first row
-        fieldnames=list[0].keys()
-        writer = csv.DictWriter(file, fieldnames=fieldnames,delimiter=';')
+        writer = csv.DictWriter(file, fieldnames=newfieldnames,delimiter=';')
         # Write the header row (keys of the inner dictionaries)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
-        writer.writerows(list)
+        """writer.writerows(list)"""
 
-def partial_csv_output(filename,dic,keysdic,scensum):
-
-    #Create the dic for the data partial aggregation
-    partial_dic={}
-    #Go through the result dic and aggregate the results in the different entries of the partial dic taking into account
-    #the different values of the Section indicator.
-    for value in dic.values():
-
-        sec_ind=value[keysdic['Section indentificator']]
-        #If there's still no entry in the partial dic for the present section indicator, create a new one and initialize
-        #the aggregation entries
-        if sec_ind not in partial_dic:
-            partial_dic[sec_ind] = ({keysdic['Exposed system']: scensum[keysdic['Exposed system']],
-                                     keysdic['Type of system']: scensum[keysdic['Type of system']],
-                                     keysdic['Exposed value']:0,
-                                     keysdic['Hazard scenario']:scensum[keysdic['Hazard scenario']],
-                                     keysdic['Impact damage']:0})
-        #Add the values to the aggregation entries
-        partial_dic[sec_ind][keysdic['Exposed value']]+=value[keysdic['Exposed value']]
-        partial_dic[sec_ind][keysdic['Impact damage']] += value[keysdic['Impact damage']]
-
-    #Define the saving file path
-    namefile = filename+'_partial_aggregate' + '.csv'
-    path = Path.cwd().parent.parent / 'results/csvs' / namefile
-
-    #Export the dictionary into a csv file. The column order is pre-defined and each entry is saved in a row
-    with open(path, mode='w', newline='') as file:
-        fieldnames = [keysdic['Section indentificator'],keysdic['Exposed system'], keysdic['Type of system'], keysdic['Exposed value'],
-                      keysdic['Hazard scenario'],keysdic['Impact damage']]
-        writer = csv.DictWriter(file, fieldnames=fieldnames, delimiter=';')
-        #Write the header row (keys of the inner dictionaries)
-        writer.writeheader()
-        #Write each row (each inner dictionary as a row)
-        for key, sub_dict in partial_dic.items():
-            row = {col: sub_dict.get(col, '') for col in fieldnames}
-            #Add the dictionary key as an additional row entry
-            row[keysdic['Section indentificator']] = key
+        for dic in list:
+            row = {}
+            for i in range(len(newfieldnames)):
+                row[newfieldnames[i]] = dic[keysdic[fields[i]]]
             writer.writerow(row)
+
+
+

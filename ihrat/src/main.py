@@ -5,6 +5,15 @@ import input_reading
 import damage_functions as dmfun
 import outputs
 
+def output_fields_keys(dic,fields,keysdic,keysoutputdic):
+    fieldkeys = []
+    for field in fields:
+        if field == 'Exposed value' or field == 'Impact damage':
+            type = dic[list(dic.keys())[0]][keysdic['Type of system']]
+            fieldkeys.append(keysoutputdic[field][type])
+        else:
+            fieldkeys.append(keysoutputdic[field])
+    return fieldkeys
 
 def main():
 
@@ -13,14 +22,28 @@ def main():
     expsystdic = input_reading.reading_shapefiles_exp()
     scendic = input_reading.reading_folder_files(Path.cwd().parent.parent / 'hazmaps','.tif')
 
-    # Create dic for the summary table
+    partial_agg_flag = True
+
+    # Create dic for the summary table and one for the partial aggregate table (if needed)
     summarydic = []
+    if partial_agg_flag:
+        partialaggdic = []
 
     #We define the keys all the inner dictionaries are going to work with. The input .shp files need to be
-    #pre-processed to use the same keys are their atribute headers
-    keysdic = {'Exposed system':'SYSTEM','Elements ID': 'BUILD_ID', 'Exposed value': 'EXP_VALUE', 'Type of system': 'TYPE',
-               'Damage function': 'DAM_FUN', 'Section indentificator':'CUSEC', 'Hazard scenario': 'HAZ_SCEN',
-               'Impact value':'IMP_VAL','Damage fraction':'DAM_FRAC', 'Impact damage': 'IMP_DAMAGE'}
+    #pre-processed to use the same keys are their attribute headers
+    keysdic = {'Exposed system':'SYSTEM','Elements ID': 'BUILD_ID', 'Exposed value': 'EXP_VALUE',
+               'Type of system': 'TYPE','Damage function': 'DAM_FUN', 'Section identificator':'CUSEC',
+               'Hazard scenario': 'HAZ_SCEN','Impact value':'IMP_VAL','Damage fraction':'DAM_FRAC',
+               'Impact damage': 'IMP_DAMAGE'}
+
+    #Types of systems: BUILD, POP
+
+    keysoutputdic = {'Exposed system': 'Exposed system', 'Elements ID': 'Building ID',
+                     'Exposed value':{'BUILD':'Exposed value (€)','POP':'Exposed people (n)'},
+                     'Type of system': 'Type of element', 'Damage function': 'Damage function',
+                     'Section identificator': 'CUSEC', 'Hazard scenario': 'Hazard scenario',
+                     'Impact value': 'Impact value (m)', 'Damage fraction': 'Damage fraction',
+                     'Impact damage': {'BUILD':'Impact damage (€)','POP':'Impacted people (n)'}}
 
     #Main loop. Travel through every system exposed and compute the risk analysis for all hazard scenarios.
     #Then, export the results to individual .csv files and .shp files. Also add the aggregate
@@ -62,27 +85,25 @@ def main():
             outputs.shapefile_output(system+scen,system_dic,keysdic,expsystdic[system]['crs'])
 
             #Export the results dic in a csv file
-            outputs.csv_output(system + scen, system_dic, keysdic)
+            outputs.csv_output(system + scen, system_dic, keysdic,keysoutputdic)
 
             #Add to the summary dictionary of this scenario the name of the scenario raster file and the aggregated
             #damage caused by the impact
             scensum[keysdic['Hazard scenario']]=scen
             scensum[keysdic['Impact damage']] = ldfun.column_sum(system_dic, keysdic['Impact damage'])
-
-            #Export the results in a csv file with data aggregated in categories determined by the Section
-            #indentificator column from the shapefile data
-            outputs.partial_csv_output(system + scen, system_dic, keysdic, scensum)
-
             #Add the summary dictionary of this scenario to the summary dictionary
             summarydic.append(scensum)
 
-
-
+            #Aggregate the results into categories determined by the Section identificator column from the shapefile
+            #data and add them to the partial aggregate dic (if needed)
+            if partial_agg_flag:
+                scen_compute.partial_aggregates(partialaggdic,system_dic,system,scen,keysdic)
             print(scen)
 
-    #Export them to a .csv file.
-    path = Path.cwd().parent.parent / 'results/csvs/manga_exposicion_summary.csv'
-    outputs.listofddics_to_csv(summarydic, path)
+    #Export the summary dictionary and the aggregated partial dictionary (if needed) to a .csv file.
+    outputs.summary_output(system_dic,summarydic,keysdic,keysoutputdic)
+    if partial_agg_flag:
+        outputs.partial_agg_output(system_dic,partialaggdic,keysdic,keysoutputdic)
 
 
 if __name__ == "__main__":
