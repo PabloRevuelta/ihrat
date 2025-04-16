@@ -2,6 +2,7 @@ from pathlib import Path
 import geopandas as gpd
 import csv
 import main
+import rasterio as ras
 
 
 def shapefile_output(filename,dic,keysdic,crs):
@@ -89,5 +90,20 @@ def listofddics_to_csv(list,fields,newfieldnames,path,keysdic):
                 row[newfieldnames[i]] = dic[keysdic[fields[i]]]
             writer.writerow(row)
 
+def summary_raster_output(summarydic,keysdic,keysoutputdic):
+
+    path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
+
+    fields = ['Exposed system','Exposed value', 'Hazard scenario','Impact damage']
+    fieldkeys = []
+    for field in fields:
+            fieldkeys.append(keysoutputdic[field])
+    listofddics_to_csv(summarydic,fields,fieldkeys,path,keysdic)
+
+def tif_output(filename, results,kwargs):
+    namefile = filename + '.tif'
+    path = Path.cwd().parent.parent / 'results/tifs' / namefile
+    with ras.open(path, 'w', **kwargs) as output:
+        output.write(results, 1)
 
 
