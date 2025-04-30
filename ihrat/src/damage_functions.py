@@ -1,9 +1,19 @@
+import numpy as np
+
 def apply_damage_fun(indiv_element_dic,dmfunkey,dmfrackey,impvalkey):
     #Compute tha damage fraction on the exposed value of a given element of the exposed system and add it to the dic
     dam_fun=globals().get(indiv_element_dic[dmfunkey])
     indiv_element_dic[dmfrackey]=round(dam_fun(indiv_element_dic[impvalkey]), 3)
 
+def apply_dam_fun_raster(raster_scen_data,mask_scen,damfun):
+    dam_fun = globals().get(damfun)
+    dam_fun_vec=np.vectorize(dam_fun)
+    raster_scen_data[mask_scen] = dam_fun_vec(raster_scen_data[mask_scen])
+
+    return raster_scen_data
+
 def pop_A(imp_val):
+    #print(imp_val)
     if imp_val<0.3:
         return 0
     else:

@@ -5,6 +5,7 @@ from rasterio.warp import reproject, Resampling, transform_bounds
 from rasterio.coords import BoundingBox
 from rasterio.windows import from_bounds
 from rasterio.transform import from_origin
+import damage_functions as damfun
 
 def get_common_bounds(raster_system, raster_scen):
 
@@ -15,7 +16,7 @@ def get_common_bounds(raster_system, raster_scen):
 
     bounds_scen = raster_scen.bounds
 
-    #Transform the sytem bounds into the scen crs
+    #Transform the system bounds into the scen crs
     bounds_system=BoundingBox(*transform_bounds(crs_system, crs_scen, *raster_system.bounds))
 
     #Check if they're the same. If not, look for the common bounds and return them
@@ -35,6 +36,8 @@ def raster_process(raster_system, raster_scen):
     same_res = raster_system.res == raster_scen.res
     same_crs = raster_system.crs == raster_scen.crs
     same_bounds = raster_system.bounds==raster_scen.bounds
+    a=raster_system.bounds
+    b=raster_scen.bounds
 
     #Get the metadata of the scen raster
     kwargs = raster_system.meta.copy()
@@ -90,7 +93,7 @@ def raster_process(raster_system, raster_scen):
         src_crs=raster_system.crs,
         dst_transform=transform,
         dst_crs=crs,
-        dst_shape=shape,
+        #dst_shape=shape,
         resampling=Resampling.nearest
     )
 
@@ -108,6 +111,7 @@ def raster_process(raster_system, raster_scen):
 
 
 
+
 def raster_raster(expsystdic,scendic,keysdic,keysoutputdic):
 
     #Create dic for the summary table
@@ -117,7 +121,7 @@ def raster_raster(expsystdic,scendic,keysdic,keysoutputdic):
         print(system)
         for scen in scendic.keys():
             print(scen)
-            with ras.open(expsystdic[system]) as raster_system, ras.open(scendic[scen]) as raster_scen:
+            with ras.open(expsystdic[system]['path']) as raster_system, ras.open(scendic[scen]) as raster_scen:
 
                 raster_system_data, raster_scen_data,kwargs=raster_process(raster_system, raster_scen)
 
@@ -126,16 +130,16 @@ def raster_raster(expsystdic,scendic,keysdic,keysoutputdic):
                     raster_system_data, dtype=bool)
 
                 raster_scen_data = np.where(raster_scen_data == raster_scen.nodata, np.nan, raster_scen_data)
-                mask_scen = raster_scen_data != raster_scen.nodata if raster_scen.nodata is not None else np.ones_like(
-                    raster_scen_data, dtype=bool)
+                mask_scen = ~np.isnan(raster_scen_data)
 
                 #Entry for the summary dictionary of this scenario. Add the file system name  and the
                 #aggregated exposed value
                 scensum = {keysdic['Exposed system']: system,
-                           keysdic['Exposed value']: np.nansum(raster_system_data)}
+                           keysdic['Exposed value']: round(np.nansum(raster_system_data))}
 
 
-                raster_scen_data = np.where(mask_scen,np.where(raster_scen_data >= 3, 1, raster_scen_data * 0.33),raster_scen_data)
+                raster_scen_data =damfun.apply_dam_fun_raster(raster_scen_data,mask_scen,
+                                                              expsystdic[system]['Damage function'])
 
                 final_mask = mask_scen & mask_system
                 results =np.where(final_mask, raster_system_data * raster_scen_data, np.nan)
@@ -145,7 +149,7 @@ def raster_raster(expsystdic,scendic,keysdic,keysoutputdic):
                 # damage caused by the impact
                 scensum[keysdic['Hazard scenario']] = scen
                 raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
-                scensum[keysdic['Impact damage']] = np.nansum(results)
+                scensum[keysdic['Impact damage']] = round(np.nansum(results))
 
                 # Add the summary dictionary of this scenario to the summary dictionary
                 summarydic.append(scensum)

@@ -51,8 +51,13 @@ def main():
 
         # Get the exposition maps paths and crs from the expmaps folder files
         # and the hazard scenarios maps paths from the hazmaps folder files
-        expsystdic = input_reading.reading_folder_files(Path.cwd().parent.parent / 'expmaps', '.tif')
+        expsystdic=input_reading.reading_tif_exp()
         scendic = input_reading.reading_folder_files(Path.cwd().parent.parent / 'hazmaps', '.tif')
+
+        #Define the damage functions used for the input system files
+        damage_funs={'URY_I3_human_m2':'pop_A','URY_I3_total_m2':'build_A'}
+        for key,value in damage_funs.items():
+            expsystdic[key]['Damage function']=value
 
         rr.raster_raster(expsystdic,scendic,keysdic,keysoutputdic)
 

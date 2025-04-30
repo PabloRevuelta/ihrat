@@ -28,3 +28,13 @@ def shp_to_dic(file,key):
     geodataframe = gpd.read_file(file)
     dic = geodataframe.set_index(key).T.to_dict('dict')
     return dic
+
+def reading_tif_exp(): #Returns a dic with the abs path and crs from all the .shp files in the expmaps folder
+
+    #Get the exposition maps folder path
+    filesdic = reading_folder_files(Path.cwd().parent.parent / 'expmaps', '.tif')
+    #Add the crs the dic
+    extended_dic={}
+    for name, path in filesdic.items():
+        extended_dic[name]={'path':path}
+    return extended_dic
