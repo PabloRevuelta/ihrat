@@ -1,8 +1,8 @@
-import input_reading
-import list_dics_functions as ldfun
-import scen_compute
-import damage_functions as dmfun
-import outputs
+from .. import input_reading
+from .. import list_dics_functions as ldfun
+from . import s_r_scen_compute as scen_compute
+from .. import damage_functions as dmfun
+from .. import outputs
 
 def shape_raster(expsystdic,scendic,keysdic,keysoutputdic,partial_agg_flag = False):
 

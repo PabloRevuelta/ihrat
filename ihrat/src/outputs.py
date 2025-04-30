@@ -55,24 +55,12 @@ def csv_output(filename,dic,keysdic,keysoutputdic):
                 row[newfieldnames[i]]=sub_dict[keysdic[fields[i]]]
             writer.writerow(row)
 
-def summary_output(system_dic,summarydic,keysdic,keysoutputdic):
+def tif_output(filename, results,kwargs):
+    namefile = filename + '.tif'
+    path = Path.cwd().parent.parent / 'results/tifs' / namefile
+    with ras.open(path, 'w', **kwargs) as output:
+        output.write(results, 1)
 
-    path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
-
-    fields = ['Exposed system','Type of system','Exposed value', 'Hazard scenario','Impact damage']
-    newfieldnames=main.output_fields_keys(system_dic,fields,keysdic,keysoutputdic)
-
-    listofddics_to_csv(summarydic,fields,newfieldnames,path,keysdic)
-
-def partial_agg_output(system_dic,summarydic,keysdic,keysoutputdic):
-
-    path = Path.cwd().parent.parent / 'results/csvs/partial_agg_result.csv'
-
-    fields = ['Exposed system', 'Type of system', 'Section identificator','Exposed value', 'Hazard scenario',
-              'Impact damage']
-    newfieldnames = main.output_fields_keys(system_dic, fields, keysdic, keysoutputdic)
-
-    listofddics_to_csv(summarydic, fields, newfieldnames, path, keysdic)
 def listofddics_to_csv(list,fields,newfieldnames,path,keysdic):
     #Export the content of a list of dictionaries to a .csv file. Each entry is in a single row.
 
@@ -90,20 +78,37 @@ def listofddics_to_csv(list,fields,newfieldnames,path,keysdic):
                 row[newfieldnames[i]] = dic[keysdic[fields[i]]]
             writer.writerow(row)
 
-def summary_raster_output(summarydic,keysdic,keysoutputdic):
+def summary_sr_output(system_dic,summarydic,keysdic,keysoutputdic):
 
     path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
 
-    fields = ['Exposed system','Exposed value', 'Hazard scenario','Impact damage']
+    fields = ['Exposed system','Type of system','Exposed value', 'Hazard scenario','Impact damage']
+    newfieldnames=main.output_fields_keys(system_dic,fields,keysdic,keysoutputdic)
+
+    listofddics_to_csv(summarydic,fields,newfieldnames,path,keysdic)
+
+def partial_agg_output(system_dic,summarydic,keysdic,keysoutputdic):
+
+    path = Path.cwd().parent.parent / 'results/csvs/partial_agg_result.csv'
+
+    fields = ['Exposed system', 'Type of system', 'Section identificator','Exposed value', 'Hazard scenario',
+              'Impact damage']
+    newfieldnames = main.output_fields_keys(system_dic, fields, keysdic, keysoutputdic)
+
+    listofddics_to_csv(summarydic, fields, newfieldnames, path, keysdic)
+
+def summary_rr_output(expsystdic,summarydic,keysdic,keysoutputdic):
+
+    path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
+
+    fields = ['Exposed system','Type of system','Exposed value','Hazard scenario','Impact damage']
     fieldkeys = []
     for field in fields:
+        if field == 'Exposed value' or field == 'Impact damage':
+            fieldkeys.append(field)
+        else:
             fieldkeys.append(keysoutputdic[field])
     listofddics_to_csv(summarydic,fields,fieldkeys,path,keysdic)
 
-def tif_output(filename, results,kwargs):
-    namefile = filename + '.tif'
-    path = Path.cwd().parent.parent / 'results/tifs' / namefile
-    with ras.open(path, 'w', **kwargs) as output:
-        output.write(results, 1)
 
 
