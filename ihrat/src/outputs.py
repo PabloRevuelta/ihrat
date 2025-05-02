@@ -101,7 +101,7 @@ def summary_rr_output(expsystdic,summarydic,keysdic,keysoutputdic):
 
     path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
 
-    fields = ['Exposed system','Type of system','Exposed value','Hazard scenario','Impact damage']
+    fields = ['Exposed system','Type of system','Exposed value','Hazard scenario','Damage function','Impact damage']
     fieldkeys = []
     for field in fields:
         if field == 'Exposed value' or field == 'Impact damage':

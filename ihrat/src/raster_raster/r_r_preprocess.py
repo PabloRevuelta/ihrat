@@ -80,26 +80,40 @@ def preprocess(raster_system, raster_scen):
             window = from_bounds(*bounds, transform=raster_scen.transform)
             raster_scen_data=raster_scen.read(1,window=window)
 
-            #Compute the shape for the system reproject with the common bounds and the scen resol
-            x_res,y_res=raster_scen.res
-            width = round((bounds.right - bounds.left) / x_res)
-            height = round((bounds.top - bounds.bottom) / abs(y_res))
-            shape=(height,width)
+        #Cut the system raster to common bounds to obtain the aggregated value in the study area
+        bounds_system = BoundingBox(*transform_bounds(raster_scen.crs, raster_system.crs, *bounds))
+        window = from_bounds(*bounds_system, transform=raster_system.transform)
+        raster_system_data = raster_system.read(1, window=window)
+        raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
+        pre_sum=np.nansum(raster_system_data)
 
-            #Create the transform
-            transform = from_origin(bounds.left, bounds.top, x_res, y_res)
+        #Compute the shape for the system reproject with the common bounds and the scen resol
+        x_res,y_res=raster_scen.res
+        width = round((bounds.right - bounds.left) / x_res)
+        height = round((bounds.top - bounds.bottom) / abs(y_res))
+        shape=(height,width)
 
-            #Reproject system raster
-            raster_system_data = reproject_raster(raster_system,raster_scen.crs, raster_scen.res, shape,transform)
+        #Create the transform
+        transform = from_origin(bounds.left, bounds.top, x_res, y_res)
 
-            #Update the kwargs
-            height, width = shape
-            kwargs.update({
-                'crs': raster_scen.crs,
-                'transform': transform,
-                'width': width,
-                'height': height
-            })
+        #Reproject system raster
+        raster_system_data = reproject_raster(raster_system,raster_scen.crs, raster_scen.res, shape,transform)
+        raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
+        #Compute the aggregated value ratio between the original raster and the reprojection and correct the reprojected
+        #values
+        ratio=pre_sum/np.nansum(raster_system_data)
+        raster_system_data = raster_system_data * ratio
+
+
+
+        #Update the kwargs
+        height, width = shape
+        kwargs.update({
+            'crs': raster_scen.crs,
+            'transform': transform,
+            'width': width,
+            'height': height
+        })
 
     #Change the no-data and create no-data masks for both rasters
     raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
@@ -107,5 +121,6 @@ def preprocess(raster_system, raster_scen):
         raster_system_data, dtype=bool)
     raster_scen_data = np.where(raster_scen_data == raster_scen.nodata, np.nan, raster_scen_data)
     mask_scen = ~np.isnan(raster_scen_data)
+
 
     return raster_system_data, raster_scen_data, mask_system, mask_scen, kwargs
