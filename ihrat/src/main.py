@@ -51,8 +51,8 @@ def main():
         scendic = input_reading.reading_folder_files(Path.cwd().parent.parent / 'hazmaps', '.tif')
 
         #Define the type of system in each input file and the damage functions used (NEED TO BE DONE BY HAND)
-        damage_funs={'URY_I3_human_m2':'pop_A','ury_ppp_2020_constrainedCROPED2':'pop_A'}
-        system_type = {'URY_I3_human_m2': 'POP','ury_ppp_2020_constrainedCROPED2': 'POP'}
+        damage_funs={'ury_ppp_2020_constrained':'pop_A'}
+        system_type = {'ury_ppp_2020_constrained': 'POP'}
 
         #Add the information to the systems dic
         for key,value in damage_funs.items():

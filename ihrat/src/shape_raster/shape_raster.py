@@ -68,7 +68,7 @@ def shape_raster(expsystdic,scendic,keysdic,keysoutputdic,partial_agg_flag = Fal
             print(scen)
 
     # Export the summary dictionary and the aggregated partial dictionary (if needed) to a .csv file.
-    outputs.summary_output(system_dic, summarydic, keysdic, keysoutputdic)
+    outputs.summary_sr_output(system_dic, summarydic, keysdic, keysoutputdic)
     if partial_agg_flag:
         outputs.partial_agg_output(system_dic, partialaggdic, keysdic, keysoutputdic)
 
