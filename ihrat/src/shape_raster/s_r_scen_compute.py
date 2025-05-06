@@ -1,4 +1,4 @@
-import list_dics_functions as ldfun
+from .. import list_dics_functions as ldfun
 import rasterstats as rsts
 
 def impact_mean_calc(pathexp,pathscen,system_dic,key):

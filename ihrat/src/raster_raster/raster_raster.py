@@ -41,7 +41,7 @@ def raster_raster(expsystdic,scendic,keysdic,keysoutputdic):
                 # Add to the summary dictionary of this scenario the name of the scenario raster file and the aggregated
                 # damage caused by the impact
                 scensum[keysdic['Hazard scenario']] = scen
-                raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
+                results = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
                 scensum[keysdic['Impact damage']] = round(np.nansum(results))
 
                 # Add the summary dictionary of this scenario to the summary dictionary
