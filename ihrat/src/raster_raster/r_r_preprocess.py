@@ -27,7 +27,7 @@ def get_common_bounds(raster_system, raster_scen):
 
     return BoundingBox(left, bottom, right, top)
 
-def reproject_raster(raster_system,crs,res,shape,transform):
+def reproject_raster(raster_system,crs,shape,transform):
 
     # Create an empty array for the reproject of the system raster
     raster_system_data = np.empty(shape, dtype=np.float32)
@@ -51,7 +51,7 @@ def preprocess(raster_system, raster_scen):
     #Get the metadata of the scen raster
     kwargs = raster_system.meta.copy()
 
-    #Compare the resolution,crs, bounds from the input rasters
+    #Compare the resolution, crs, bounds from the input rasters
     same_res = raster_system.res == raster_scen.res
     same_crs = raster_system.crs == raster_scen.crs
     same_bounds = raster_system.bounds==raster_scen.bounds
@@ -65,7 +65,7 @@ def preprocess(raster_system, raster_scen):
     elif same_crs and same_bounds and not same_res:
 
         raster_scen_data = raster_scen.read
-        raster_system_data=reproject_raster(raster_system,raster_scen.crs,raster_scen.res,
+        raster_system_data=reproject_raster(raster_system,raster_scen.crs,
                                             raster_scen.shape,raster_scen.transform)
 
     #3. If different crs or bounds. Get common bounds, cut the scen raster and resample system raster to common bounds
@@ -80,7 +80,7 @@ def preprocess(raster_system, raster_scen):
             window = from_bounds(*bounds, transform=raster_scen.transform)
             raster_scen_data=raster_scen.read(1,window=window)
 
-        #Cut the system raster to common bounds to obtain the aggregated value in the study area
+        #Cut the system raster to common bounds to get the aggregated value in the study area
         bounds_system = BoundingBox(*transform_bounds(raster_scen.crs, raster_system.crs, *bounds))
         window = from_bounds(*bounds_system, transform=raster_system.transform)
         raster_system_data = raster_system.read(1, window=window)
@@ -97,7 +97,7 @@ def preprocess(raster_system, raster_scen):
         transform = from_origin(bounds.left, bounds.top, x_res, y_res)
 
         #Reproject system raster
-        raster_system_data = reproject_raster(raster_system,raster_scen.crs, raster_scen.res, shape,transform)
+        raster_system_data = reproject_raster(raster_system,raster_scen.crs,shape,transform)
         raster_system_data = np.where(raster_system_data == raster_system.nodata, np.nan, raster_system_data)
         #Compute the aggregated value ratio between the original raster and the reprojection and correct the reprojected
         #values

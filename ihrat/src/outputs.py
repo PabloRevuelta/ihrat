@@ -1,30 +1,32 @@
 from pathlib import Path
 import geopandas as gpd
 import csv
-import main
+import main_tool
 import rasterio as ras
 
+import dictionaries as dics
 
-def shapefile_output(filename,dic,keysdic,crs):
+
+def shapefile_output(filename,dic,crs):
     #Create a new shapefile adding the impact scenario, impact value, damage fraction and consequences value
 
     namefile=filename+'.shp'
     path = Path.cwd().parent.parent / 'results/shps' / namefile
 
     #Transform dic of dics into dic of lists. Each list contains the values of a given key from all the subdics
-    columnsdic = {key: [] for key in dic[list(dic.keys())[0]].keys()}
-    columnsdic[keysdic['Elements ID']]=[]
+    columns_dic = {key: [] for key in dic[list(dic.keys())[0]].keys()}
+    columns_dic[dics.keysdic['Elements ID']]=[]
     for key,row in dic.items():
-        columnsdic[keysdic['Elements ID']].append(key)
+        columns_dic[dics.keysdic['Elements ID']].append(key)
         for column, value in row.items():
-            columnsdic[column].append(value)
+            columns_dic[column].append(value)
 
 
     #Create a geodataframe from the dic of lists
-    gdf = gpd.GeoDataFrame(columnsdic, geometry='geometry')
-    gdf = gdf[[keysdic['Elements ID'], keysdic['Type of system'], keysdic['Section identificator'],
-               keysdic['Exposed value'], keysdic['Hazard scenario'],keysdic['Impact value'], keysdic['Damage function'],
-               keysdic['Damage fraction'], keysdic['Impact damage'],'geometry']]
+    gdf = gpd.GeoDataFrame(columns_dic, geometry='geometry')
+    gdf = gdf[[dics.keysdic['Elements ID'], dics.keysdic['Type of system'], dics.keysdic['Section identificator'],
+               dics.keysdic['Exposed value'], dics.keysdic['Impact scenario'],dics.keysdic['Impact value'],
+               dics.keysdic['Damage function'],dics.keysdic['Damage fraction'], dics.keysdic['Impact damage'],'geometry']]
 
     #Define the crs for the file
     gdf=gdf.set_crs(crs)
@@ -32,27 +34,26 @@ def shapefile_output(filename,dic,keysdic,crs):
     #Save the gdf a shapefile
     gdf.to_file(path)
 
-def csv_output(filename,dic,keysdic,keysoutputdic):
+def csv_output(filename,dic):
     #Export the dictionary with the results of the risk analysis to a .csv file. Each entry is in a single row,
-    #they keys are in the first and the keys of the sub dictionaries are the headers.
+    #they keys are in the first, and the keys of the sub dictionaries are the headers.
 
     namefile = filename + '.csv'
     path = Path.cwd().parent.parent / 'results/csvs' / namefile
 
-    fields = ['Elements ID', 'Type of system', 'Section identificator', 'Exposed value', 'Hazard scenario',
+    fields = ['Elements ID', 'Type of system', 'Section identificator', 'Exposed value', 'Impact scenario',
               'Impact value', 'Damage function', 'Damage fraction', 'Impact damage']
-    newfieldnames = main.output_fields_keys(dic,fields,keysdic,keysoutputdic)
+    new_field_names = main_tool.output_fields_keys(fields,dic)
 
     with open(path, mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=newfieldnames, delimiter=';')
+        writer = csv.DictWriter(file, fieldnames=new_field_names, delimiter=';')
         # Write the header row (field output headers)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
         for key, sub_dict in dic.items():
-            row={}
-            row[newfieldnames[0]] = key
-            for i in range(1,len(newfieldnames)):
-                row[newfieldnames[i]]=sub_dict[keysdic[fields[i]]]
+            row= {new_field_names[0]: key}
+            for i in range(1,len(new_field_names)):
+                row[new_field_names[i]]=sub_dict[dics.keysdic[fields[i]]]
             writer.writerow(row)
 
 def tif_output(filename, results,kwargs):
@@ -61,54 +62,50 @@ def tif_output(filename, results,kwargs):
     with ras.open(path, 'w', **kwargs) as output:
         output.write(results, 1)
 
-def listofddics_to_csv(list,fields,newfieldnames,path,keysdic):
+def listofdics_to_csv(listofdics,fields,new_field_names,path):
     #Export the content of a list of dictionaries to a .csv file. Each entry is in a single row.
 
     with open(path, mode='w', newline='') as file:
         # Get all unique fieldnames from the dictionaries and write them as first row
-        writer = csv.DictWriter(file, fieldnames=newfieldnames,delimiter=';')
+        writer = csv.DictWriter(file, fieldnames=new_field_names,delimiter=';')
         # Write the header row (keys of the inner dictionaries)
         writer.writeheader()
         # Write each row (each inner dictionary as a row)
         """writer.writerows(list)"""
 
-        for dic in list:
+        for dic in listofdics:
             row = {}
-            for i in range(len(newfieldnames)):
-                row[newfieldnames[i]] = dic[keysdic[fields[i]]]
+            for i in range(len(new_field_names)):
+                row[new_field_names[i]] = dic[dics.keysdic[fields[i]]]
             writer.writerow(row)
 
-def summary_sr_output(system_dic,summarydic,keysdic,keysoutputdic):
+def summary_output(exp_format,system_dic,summarydic):
 
     path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
 
-    fields = ['Exposed system','Type of system','Exposed value', 'Hazard scenario','Impact damage']
-    newfieldnames=main.output_fields_keys(system_dic,fields,keysdic,keysoutputdic)
+    if exp_format=='shapefile_exp':
+        fields = ['Exposed system','Type of system','Exposed value summary', 'Impact scenario','Impact damage summary']
+    elif exp_format=='raster_exp':
+        fields = ['Exposed system', 'Type of system', 'Exposed value summary', 'Impact scenario', 'Damage function',
+                  'Impact damage summary']
+    new_field_names=main_tool.output_fields_keys(fields,system_dic)
 
-    listofddics_to_csv(summarydic,fields,newfieldnames,path,keysdic)
+    listofdics_to_csv(summarydic,fields,new_field_names,path)
 
-def partial_agg_output(system_dic,summarydic,keysdic,keysoutputdic):
+def partial_agg_output(exp_format,system_dic,summarydic):
 
     path = Path.cwd().parent.parent / 'results/csvs/partial_agg_result.csv'
 
-    fields = ['Exposed system', 'Type of system', 'Section identificator','Exposed value', 'Hazard scenario',
-              'Impact damage']
-    newfieldnames = main.output_fields_keys(system_dic, fields, keysdic, keysoutputdic)
 
-    listofddics_to_csv(summarydic, fields, newfieldnames, path, keysdic)
+    if exp_format=='shapefile_exp':
+        fields = ['Exposed system', 'Type of system', 'Section identificator', 'Exposed value summary',
+                  'Impact scenario','Impact damage summary']
+    elif exp_format=='raster_exp':
+        fields = ['Exposed system', 'Type of system', 'Section identificator', 'Exposed value summary',
+                  'Impact scenario', 'Damage function','Impact damage summary']
+    new_field_names = main_tool.output_fields_keys(fields,system_dic)
 
-def summary_rr_output(expsystdic,summarydic,keysdic,keysoutputdic):
-
-    path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
-
-    fields = ['Exposed system','Type of system','Exposed value','Hazard scenario','Damage function','Impact damage']
-    fieldkeys = []
-    for field in fields:
-        if field == 'Exposed value' or field == 'Impact damage':
-            fieldkeys.append(field)
-        else:
-            fieldkeys.append(keysoutputdic[field])
-    listofddics_to_csv(summarydic,fields,fieldkeys,path,keysdic)
+    listofdics_to_csv(summarydic, fields, new_field_names, path)
 
 
 
