@@ -2,7 +2,8 @@ from .. import input_reading
 from .. import list_dics_functions as ldfun
 from .. import damage_functions as dmfun
 from .. import outputs
-from .. import dictionaries as dics
+from ihrat.src import dictionaries as dics
+from ihrat.src import main_tool
 
 import geopandas as gpd
 
@@ -35,8 +36,6 @@ def shape_exp(impact_format,expsystdic,scendic,partial_agg_flag,zonal_stats_meth
             system_gdf = gpd.read_file(expsystdic[system]['path'])
 
             system_dic = system_gdf.set_index(dics.keysdic['Elements ID']).T.to_dict('dict')
-
-        print(system)
 
         for scen in scendic.keys():
 
@@ -84,11 +83,12 @@ def shape_exp(impact_format,expsystdic,scendic,partial_agg_flag,zonal_stats_meth
             # data and add them to the partial aggregate dic (if needed)
             if partial_agg_flag:
                 scen_compute.partial_aggregates(partialaggdic, system_dic, system, scen)
+            main_tool.state_counter+=1
             print(scen)
-
+        print(system)
     # Export the summary dictionary and the aggregated partial dictionary (if needed) to a .csv file.
-    outputs.summary_output(system_dic, summarydic)
+    outputs.summary_output(impact_format,system_dic, summarydic)
     if partial_agg_flag:
-        outputs.partial_agg_output(system_dic, partialaggdic)
+        outputs.partial_agg_output(impact_format,system_dic, partialaggdic)
 
 

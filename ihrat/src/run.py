@@ -8,4 +8,4 @@ if __name__ == "__main__":
     #zonal_stats_value = 'mean' or 'max' only in s-r y s-s ('mean' base)
     #dam_fun_file=FALSE or TRUE for r-r (FALSE base)
 
-    main_tool.main_tool('raster_raster',partial_agg_flag=True)
+    main_tool.shape_raster_tool(partial_agg_flag=True)

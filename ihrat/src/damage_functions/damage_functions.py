@@ -3,7 +3,7 @@ from pathlib import Path
 import geopandas as gpd
 from rasterio.features import geometry_mask
 
-import dictionaries as dics
+from .. import dictionaries as dics
 
 def apply_damage_fun_shp(indiv_element_dic):
     #Compute the damage fraction on the exposed value of a given element from the exposed system and add it to the dic
@@ -36,33 +36,3 @@ def apply_dam_fun_file(raster_scen_data,mask_scen,dm_fun_file,kwargs):
         raster_scen_data[mask] = dam_fun_vec(raster_scen_data[mask_comb])
 
     return raster_scen_data
-
-def pop_A(imp_val):
-    if imp_val<0.3:
-        return 0
-    else:
-        return 1
-
-def pop_B(imp_val):
-    if imp_val < 0.5:
-        return 0
-    else:
-        return 1
-
-def build_A(imp_val):
-    if imp_val > 3:
-        return 1
-    else:
-        return 0.33*imp_val
-
-def build_B(imp_val):
-    if imp_val > 6:
-        return 1
-    else:
-        return 0.17*imp_val
-
-def build_C(imp_val):
-    if imp_val > 9:
-        return 1
-    else:
-        return 0.11*imp_val

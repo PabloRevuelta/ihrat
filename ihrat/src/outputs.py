@@ -1,10 +1,10 @@
 from pathlib import Path
 import geopandas as gpd
 import csv
-import main_tool
+from . import main_tool
 import rasterio as ras
 
-import dictionaries as dics
+from . import dictionaries as dics
 
 
 def shapefile_output(filename,dic,crs):
@@ -79,15 +79,15 @@ def listofdics_to_csv(listofdics,fields,new_field_names,path):
                 row[new_field_names[i]] = dic[dics.keysdic[fields[i]]]
             writer.writerow(row)
 
-def summary_output(exp_format,system_dic,summarydic):
+def summary_output(imp_format,system_dic,summarydic):
 
     path = Path.cwd().parent.parent / 'results/csvs/results_summary.csv'
 
-    if exp_format=='shapefile_exp':
-        fields = ['Exposed system','Type of system','Exposed value summary', 'Impact scenario','Impact damage summary']
-    elif exp_format=='raster_exp':
+    if imp_format=='shapefile':
         fields = ['Exposed system', 'Type of system', 'Exposed value summary', 'Impact scenario', 'Damage function',
                   'Impact damage summary']
+    elif imp_format=='raster':
+        fields = ['Exposed system','Type of system','Exposed value summary', 'Impact scenario','Impact damage summary']
     new_field_names=main_tool.output_fields_keys(fields,system_dic)
 
     listofdics_to_csv(summarydic,fields,new_field_names,path)
@@ -97,12 +97,12 @@ def partial_agg_output(exp_format,system_dic,summarydic):
     path = Path.cwd().parent.parent / 'results/csvs/partial_agg_result.csv'
 
 
-    if exp_format=='shapefile_exp':
+    if exp_format=='shapefile':
         fields = ['Exposed system', 'Type of system', 'Section identificator', 'Exposed value summary',
-                  'Impact scenario','Impact damage summary']
-    elif exp_format=='raster_exp':
+                  'Impact scenario', 'Damage function', 'Impact damage summary']
+    elif exp_format=='raster':
         fields = ['Exposed system', 'Type of system', 'Section identificator', 'Exposed value summary',
-                  'Impact scenario', 'Damage function','Impact damage summary']
+                  'Impact scenario', 'Impact damage summary']
     new_field_names = main_tool.output_fields_keys(fields,system_dic)
 
     listofdics_to_csv(summarydic, fields, new_field_names, path)

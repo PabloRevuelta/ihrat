@@ -1,9 +1,10 @@
-import input_reading
+from . import input_reading
+from . import dictionaries as dics
 
 from ihrat.src.shape_exp import shape_exp
 from ihrat.src.raster_raster import raster_raster as rr
 
-import dictionaries as dics
+state_counter=0
 
 
 def shape_raster_tool(partial_agg_flag=False,zonal_stats_method='centers',zonal_stats_value='mean'):
@@ -16,7 +17,7 @@ def shape_raster_tool(partial_agg_flag=False,zonal_stats_method='centers',zonal_
     shape_exp.shape_exp('raster', expsystdic, scendic, partial_agg_flag, zonal_stats_method,
                         zonal_stats_value)
 
-def raster_raster_tool(partial_agg_flag=False,dam_fun_file=False):
+def raster_raster_tool(partial_agg_flag=False,dam_fun_file_flag=False):
 
     # Get the exposition maps paths and crs from the expmaps folder files,
     # and the impact scenarios maps paths from the impmaps folder files
@@ -30,14 +31,14 @@ def raster_raster_tool(partial_agg_flag=False,dam_fun_file=False):
     # Add the information to the systems dic
     for key, value in system_type.items():
         expsystdic[key]['Type of system'] = value
-    if dam_fun_file:
+    if dam_fun_file_flag:
         for key, value in damage_funs.items():
             expsystdic[key]['Damage function files'] = value
     else:
         for key, value in damage_funs.items():
             expsystdic[key]['Damage function'] = value
 
-    rr.raster_raster(expsystdic, scendic, partial_agg_flag, dam_fun_file)
+    rr.raster_raster(expsystdic, scendic, partial_agg_flag, dam_fun_file_flag)
 
 def shape_shape_tool(partial_agg_flag=False,zonal_stats_value='mean'):
 
