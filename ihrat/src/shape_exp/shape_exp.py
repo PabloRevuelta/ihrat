@@ -1,6 +1,6 @@
 from .. import input_reading
 from .. import list_dics_functions as ldfun
-from .. import damage_functions as dmfun
+from ihrat.src.damage_functions import damage_functions as dmfun
 from .. import outputs
 from ihrat.src import dictionaries as dics
 from ihrat.src import main_tool

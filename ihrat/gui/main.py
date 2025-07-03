@@ -5,15 +5,18 @@ from pathlib import Path
 import time
 import math
 import tools
+import glob
 
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtCore import Qt, QRunnable, pyqtSlot, QThreadPool, QObject, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QLineEdit, QAction, QMenu, QMainWindow, QVBoxLayout, QHBoxLayout, QLabel,
-                             QFileDialog, QTextEdit,
+                             QFileDialog, QTextEdit, QSpacerItem, QSizePolicy,
                              QWidget, QPushButton, QGridLayout, QScrollArea, QDialog, QFormLayout, QDialogButtonBox)
 
 from ihrat.src import main_tool
 from ihrat.src.dictionaries import keysdic, keysoutputdic
+
+import traceback
 
 
 # noinspection PyUnresolvedReferences
@@ -22,6 +25,10 @@ class MainApp(QMainWindow):
 
         super().__init__()
 
+        self.workers_completed = None
+        self.tif_text_edit = None
+        self.shp_text_edit = None
+        self.csv_text_edit = None
         self.dam_fun_container = None
         self.function_menu = None
         self.dam_fun_container_layout = None
@@ -303,7 +310,7 @@ class MainApp(QMainWindow):
 
     def input_screen(self):
 
-        def create_option_button(title: str, button_text: str,actions: list[tuple[str, callable]]):
+        def create_option_button(title,button_text,actions):
             layout = QVBoxLayout()
 
             label = QLabel(title)
@@ -317,9 +324,11 @@ class MainApp(QMainWindow):
             menu = QMenu()
             menu.setStyleSheet(self.menu_stylesheet)
 
-            for action_text, action_func in actions:
+            for action_text, attribute_name, value in actions:
                 action = QAction(action_text, button)
-                action.triggered.connect(lambda _, f=action_func: f(button))
+
+                action.triggered.connect(
+                    lambda _, at=action_text, an=attribute_name, v=value: set_option(at, an, v, button))
                 menu.addAction(action)
 
             button.setMenu(menu)
@@ -341,7 +350,7 @@ class MainApp(QMainWindow):
                 }
             """)
             text_edit.setPlaceholderText(placeholder)
-            text_edit.setText("\n".join(tools.reading_files(folder)))
+            text_edit.setText("\n".join(tools.reading_files(folder,('.tif', '.shp'))))
             layout.addWidget(text_edit)
 
             button_layout = QHBoxLayout()
@@ -387,9 +396,17 @@ class MainApp(QMainWindow):
 
         def load_files(file_input, folder_name):
 
-            # Select the files to load
+            # Select the reference files to load (only .shp and .tif)
             options = QFileDialog.Options()
-            file_paths, _ = QFileDialog.getOpenFileNames(self, "Select file(s)", "", "All files (*.*)", options=options)
+            file_paths, _ = QFileDialog.getOpenFileNames(self, "Select file(s)", "", "Shapefiles and TIFF (*.shp *.tif)", options=options)
+            #Look for all additional finales to .shp files
+            extended_file_paths = []
+            for file_path in file_paths:
+                directory = os.path.dirname(file_path)  # Carpeta del archivo
+                base_name = os.path.splitext(os.path.basename(file_path))[0]  # Nombre sin extensión
+                # Buscar todos los archivos que tengan el mismo nombre, sin importar la extensión
+                matching_files = glob.glob(os.path.join(directory, f"{base_name}.*"))
+                extended_file_paths.extend(matching_files)
 
             # Get the program folder to save the files
             folder_path = Path.cwd().parent.parent / folder_name
@@ -397,15 +414,17 @@ class MainApp(QMainWindow):
             os.makedirs(folder_path, exist_ok=True)
 
             # Add the files to the program folder
-            if file_paths:
-                file_names = []
-                for path in file_paths:
-                    file_name = os.path.basename(path)
-                    file_names.append(file_name)
-                    file_path = os.path.join(folder_path, file_name)
-                    shutil.copy(path, file_path)
-                # Add the file names to the input textbox
-                file_input.append("\n".join(file_names))
+            for path in extended_file_paths:
+                file_name = os.path.basename(path)
+                file_path = os.path.join(folder_path, file_name)
+                shutil.copy(path, file_path)
+
+            # Add the file names to the input textbox
+            file_names = []
+            for path in file_paths:
+                file_name = os.path.basename(path)
+                file_names.append(file_name)
+            file_input.append("\n".join(file_names))
 
             if folder_name == 'inputs\\expmaps' or folder_name == 'inputs\\impmaps':
                 self.exp_maps_list = tools.reading_folder_files('expmaps', '.shp')
@@ -431,9 +450,9 @@ class MainApp(QMainWindow):
                 self.imp_maps_list = tools.reading_folder_files('impmaps', '.tif')
                 self.screens[1] = self.executing_screen()
 
-        def set_option(attribute_name, value, button, button_text):
+        def set_option(action_text,attribute_name, value, button):
             setattr(self, attribute_name, value)
-            button.setText(button_text)
+            button.setText(action_text)
 
         # Initialize the screen widget and layout
         screen_layout = QVBoxLayout()
@@ -456,7 +475,7 @@ class MainApp(QMainWindow):
         option1 = QAction("Exposure: raster (.tif) - Impact: raster (.tif)", format_button)
         option2 = QAction("Exposure: shapefile (.shp) - Impact: raster (.tif)", format_button)
         option3 = QAction("Exposure: shapefile (.shp) - Impact: shapefile (.shp)", format_button)
-        option1.triggered.connect(lambda: select_tool('raster-raster',format_button, partial_agg_button,
+        option1.triggered.connect(lambda: select_tool('raster_raster',format_button, partial_agg_button,
                                                          dam_fun_button, zonal_stats_method_button,
                                                          zonal_stats_value_button))
         option2.triggered.connect(lambda: select_tool('shape_raster',format_button, partial_agg_button,
@@ -479,23 +498,19 @@ class MainApp(QMainWindow):
 
         # Partial Aggregated Results Button
         partial_agg_layout, partial_agg_button = create_option_button("Partial aggregated results","Select partial aggregation",
-            [("Partial aggregated results",lambda: set_option('partial_agg_results_flag', True, partial_agg_button,"Partial aggregated results")),
-                ("No partial aggregated results",lambda: set_option('partial_agg_results_flag', False, partial_agg_button,"No partial aggregated results"))])
+            [("Partial aggregated results",'partial_agg_results_flag', True),("No partial aggregated results",'partial_agg_results_flag', False)])
         options_1_layout.addLayout(partial_agg_layout)
         # Damage Functions Button
         dam_fun_layout, dam_fun_button = create_option_button("Damage functions input (rr)","Select damage functions input (rr)",
-            [("Damage functions distribution shapefile",lambda: set_option('dam_fun_file_flag', True, dam_fun_button, "Partial aggregated results")),
-                ("General damage function",lambda: set_option('dam_fun_file_flag', False, dam_fun_button, "No partial aggregated results"))])
+            [("Damage functions distribution shapefile",'dam_fun_file_flag', True),("General damage function",'dam_fun_file_flag', False)])
         options_1_layout.addLayout(dam_fun_layout)
         # Zonal Stats Method Button
         zonal_stats_method_layout, zonal_stats_method_button = create_option_button("Zonal stats method (sr)","Select zonal stats method (sr)",
-            [("Centers",lambda: set_option('zonal_stats_method', 'centers', zonal_stats_method_button, "Centers")),
-                ("All touched",lambda: set_option('zonal_stats_method', 'all touched', zonal_stats_method_button, "All touched"))])
+            [("Centers",'zonal_stats_method', 'centers' ),("All touched",'zonal_stats_method', 'all touched')])
         options_2_layout.addLayout(zonal_stats_method_layout)
         # Zonal Stats Value Button
         zonal_stats_value_layout, zonal_stats_value_button = create_option_button("Value for zonal statistics (sr-ss)","Select value for zonal statistics (sr-ss)",
-            [("Mean", lambda: set_option('zonal_stats_value', 'mean', zonal_stats_value_button, "Mean")),
-                ("Max", lambda: set_option('zonal_stats_value', 'max', zonal_stats_value_button, "Max"))])
+            [("Mean",'zonal_stats_value', 'mean'),("Max", 'zonal_stats_value', 'max')])
         options_2_layout.addLayout(zonal_stats_value_layout)
 
         #Set the title for the input files layout
@@ -572,6 +587,9 @@ class MainApp(QMainWindow):
                 layout.addWidget(btn, row, 2)
                 self.scen_ticks_list.append(btn)
                 row += 1
+
+        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        screen_layout.addItem(spacer)
 
         return screen
 
@@ -681,7 +699,7 @@ class MainApp(QMainWindow):
 
     def results_screen(self):
 
-        def create_output_layout(title_text, placeholder_text, folder_path):
+        def create_output_layout(title_text, placeholder_text, folder_path,extension):
             layout = QVBoxLayout()
 
             title_label = QLabel(title_text)
@@ -699,7 +717,7 @@ class MainApp(QMainWindow):
                 }
             """)
             text_edit.setPlaceholderText(placeholder_text)
-            text_edit.setText("\n".join(tools.reading_files(folder_path)))
+            text_edit.setText("\n".join(tools.reading_files(folder_path,extension)))
             layout.addWidget(text_edit)
 
             save_button = QPushButton("Save")
@@ -707,7 +725,7 @@ class MainApp(QMainWindow):
             save_button.clicked.connect(lambda _, inputs=text_edit: save_files(folder_path))
             layout.addWidget(save_button)
 
-            return layout
+            return layout, text_edit
 
         def save_files(source_folder):
             target_folder = QFileDialog.getExistingDirectory(self, "Select Folder to Save Files")
@@ -735,26 +753,29 @@ class MainApp(QMainWindow):
         screen_layout.addLayout(outputs_windows_2_layout)
 
         # Charts (.csv) outputs
-        csvs_output_layout = create_output_layout(
+        csvs_output_layout, self.csv_text_edit = create_output_layout(
             title_text="Charts (.csv) outputs",
             placeholder_text="Charts (.csv) outputs",
-            folder_path='results\\csvs'
+            folder_path='results\\csvs',
+            extension='.csv'
         )
         outputs_windows_layout.addLayout(csvs_output_layout)
 
         # Maps (.shp) outputs
-        shp_output_layout = create_output_layout(
+        shp_output_layout, self.shp_text_edit = create_output_layout(
             title_text="Maps (.shp) outputs",
             placeholder_text="Maps (.shp) outputs",
-            folder_path='results\\shps'
+            folder_path='results\\shps',
+            extension='.shp'
         )
         outputs_windows_2_layout.addLayout(shp_output_layout)
 
         # Maps (.tif) outputs
-        tif_output_layout = create_output_layout(
+        tif_output_layout, self.tif_text_edit = create_output_layout(
             title_text="Maps (.tif) outputs",
             placeholder_text="Maps (.tif) outputs",
-            folder_path='results\\tifs'
+            folder_path='results\\tifs',
+            extension='.tif'
         )
         outputs_windows_2_layout.addLayout(tif_output_layout)
 
@@ -800,7 +821,7 @@ class MainApp(QMainWindow):
 
             row = index // 2
             col = index % 2
-            container_widget=create_dam_fun_widget(self, index, name, code)
+            container_widget=self.create_dam_fun_widget(name, code)
             self.dam_fun_container_layout.addWidget(container_widget, row, col)
 
         self.dam_fun_container.setLayout(self.dam_fun_container_layout)
@@ -912,11 +933,36 @@ class MainApp(QMainWindow):
 
     def execute_tool(self):
 
+        def delete_folder_files(folder_name):
+            folder_path = Path.cwd().parent.parent / folder_name
+
+            # Delete all the files
+            for file in os.listdir(folder_path):
+                file_path = os.path.join(folder_path, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+
+        delete_folder_files("results//csvs")
+        delete_folder_files("results//shps")
+        delete_folder_files("results//tifs")
+        self.refresh_results_screen()
+
+        self.workers_completed = 0
+
+        def worker_finished():
+            self.workers_completed += 1
+            if self.workers_completed == 2:
+                self.refresh_results_screen()
+                self.show_screen(4)
+
         worker1 = RunParallelTool(self.function_different_tools)
+        worker1.signals.finished.connect(worker_finished)
 
         status_signals = WorkerSignals()
         status_signals.update_tick_sys.connect(self.update_tick_sys)
         status_signals.update_tick_scen.connect(self.update_tick_scen)
+        status_signals.finished.connect(worker_finished)
+
         worker2 = RunParallelTool(self.check_status, status_signals)
 
         self.threadpool.start(worker1)
@@ -929,24 +975,32 @@ class MainApp(QMainWindow):
             main_tool.raster_raster_tool(self.partial_agg_results_flag, self.dam_fun_file_flag)
 
         elif self.tool_selected == 'shape_raster':
-            main_tool.shape_raster_tool(self.partial_agg_results_flag, self.zonal_stats_method,
+            try:
+                main_tool.shape_raster_tool(self.partial_agg_results_flag, self.zonal_stats_method,
                                         self.zonal_stats_value)
+            except Exception as e:
+                print(e)
+                traceback.print_exc()
 
         elif self.tool_selected == 'shape_shape':
             main_tool.shape_shape_tool(self.partial_agg_results_flag, self.zonal_stats_value)
 
+        signals.finished.emit()
+
     def check_status(self, signals):
         sys_counter = -1
         while sys_counter < len(self.exp_maps_list) - 1:
-            try:
-                sys_counter = math.floor(main_tool.state_counter / len(self.imp_maps_list)) - 1
-                scen_counter = main_tool.state_counter - 1
-                signals.update_tick_sys.emit(sys_counter)
-                signals.update_tick_scen.emit(scen_counter)
-                time.sleep(10)
-            except Exception as e:
-                print(e)
-        self.show_screen(3)
+            sys_counter = math.floor(main_tool.state_counter / len(self.imp_maps_list)) - 1
+            scen_counter = main_tool.state_counter - 1
+            signals.update_tick_sys.emit(sys_counter)
+            signals.update_tick_scen.emit(scen_counter)
+            time.sleep(10)
+        signals.finished.emit()
+
+    def refresh_results_screen(self):
+        self.csv_text_edit.setText("\n".join(tools.reading_files('results\\csvs', '.csv')))
+        self.shp_text_edit.setText("\n".join(tools.reading_files('results\\shps', '.shp')))
+        self.tif_text_edit.setText("\n".join(tools.reading_files('results\\tifs', '.tif')))
 
     def update_tick_sys(self, index):
         if 0 <= index < len(self.sys_ticks_list):
@@ -974,6 +1028,7 @@ class RunParallelTool(QRunnable):
 class WorkerSignals(QObject):
     update_tick_sys = pyqtSignal(int)
     update_tick_scen = pyqtSignal(int)
+    finished = pyqtSignal()
 
 
 def run_ihrat_gui():

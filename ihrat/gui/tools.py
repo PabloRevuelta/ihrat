@@ -2,10 +2,11 @@ from pathlib import Path
 import os
 import ast
 
-def reading_files(foldername):
-    folder = Path.cwd().parent.parent / foldername
+def reading_files(folder_name,extensions):
+    folder = Path.cwd().parent.parent / folder_name
     files = os.listdir(folder)
-    files = [f for f in files if os.path.isfile(os.path.join(folder, f))]
+    #files = [f for f in files if os.path.isfile(os.path.join(folder, f))]
+    files = [f for f in files if f.endswith(extensions)]
     return files
 
 def reading_folder_files(folder_name,extension):

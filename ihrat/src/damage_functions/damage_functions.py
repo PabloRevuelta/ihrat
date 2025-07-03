@@ -4,11 +4,11 @@ import geopandas as gpd
 from rasterio.features import geometry_mask
 
 from .. import dictionaries as dics
+from . import damage_functions_dic as dam_fun_dic
 
 def apply_damage_fun_shp(indiv_element_dic):
     #Compute the damage fraction on the exposed value of a given element from the exposed system and add it to the dic
-
-    dam_fun=globals().get(indiv_element_dic[dics.keysdic['Damage function']])
+    dam_fun = getattr(dam_fun_dic, indiv_element_dic[dics.keysdic['Damage function']], None)
     indiv_element_dic[dics.keysdic['Damage fraction']]=round(dam_fun(indiv_element_dic[dics.keysdic['Impact value']]), 3)
 
 def apply_dam_fun_raster(raster_scen_data,mask_scen,dm_fun):
