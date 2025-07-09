@@ -1,7 +1,6 @@
 from pathlib import Path
 import geopandas as gpd
 import csv
-from . import main_tool
 import rasterio as ras
 
 from . import dictionaries as dics

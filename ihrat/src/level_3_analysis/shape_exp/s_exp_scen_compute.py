@@ -1,21 +1,15 @@
-import rasterstats as rsts
 import geopandas as gpd
 
-from .. import dictionaries as dics
-from .. import list_dics_functions as ldfun
+from ihrat.src.tools import dictionaries as dics
+from ihrat.src.tools import list_dics_functions as ldfun
+from ihrat.src.tools import compute_zonal_stats
+
 
 def s_r_impact_mean_calc(path_exp,path_scen,system_dic,zonal_stats_method,zonal_stats_value):
     # Get zonal stats for the impact raster map into the exposition polygons and add them to the dic. We change the
     # None values by 0 and round the results to three decimals
 
-    if zonal_stats_method=='centers':
-        zonal_stats = rsts.zonal_stats(str(path_exp), str(path_scen), stats=[zonal_stats_value])
-    elif zonal_stats_method=='all touched':
-        zonal_stats = rsts.zonal_stats(str(path_exp), str(path_scen), all_touched=True,stats=[zonal_stats_value])
-    for item in zonal_stats:
-        if item[zonal_stats_value] is None:
-            item[zonal_stats_value] = 0
-        item[zonal_stats_value] = round(item[zonal_stats_value], 3)
+    zonal_stats=compute_zonal_stats.shape_raster_zonal_stats(path_exp, path_scen, zonal_stats_method, zonal_stats_value)
     key=dics.keysdic['Impact value']
     ldfun.add_listofdics_to_dicofdics(system_dic, zonal_stats, [key])
 
@@ -43,10 +37,6 @@ def s_s_impact_mean_calc(system_gdf,path_scen,system_dic,zonal_stats_value):
                     system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']]=0
                 else:
                     system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']]=max(intersections)
-
-
-
-        print(system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']])
 
 def imp_damage_compute(system_dic):
     #Compute the economic impact, multiplying the damage percentage by the value of each building of the system and
