@@ -1,4 +1,9 @@
 
+def add_listofdics_to_dic(dic,listofdics):
+    for base_key, item in zip(dic.keys(), listofdics):
+        value = list(item.values())[0]
+        dic[base_key] = value
+
 def add_listofdics_to_dicofdics(dic,listofdics,new_keys):
     #Add to each entry of a dictionary of dictionaries the values stored in a list of dictionaries.
     #To each entry of the dictionary, add the corresponding dictionary from the list. Also change the keys to the new

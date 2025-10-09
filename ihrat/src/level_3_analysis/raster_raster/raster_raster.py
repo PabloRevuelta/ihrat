@@ -3,85 +3,79 @@ import numpy as np
 import rasterstats as rsts
 
 from .r_r_preprocess import preprocess
-from .. import outputs
-from .. import damage_functions as dmfun
-from .. import dictionaries as dics
-from .. import input_reading
-from .. import list_dics_functions as ldfun
+from ihrat.src.tools import outputs
+from ihrat.src.level_3_analysis.damage_functions import damage_functions as dmfun
+from ihrat.src.tools import dictionaries as dics
+from ihrat.src.tools import input_reading
+from ihrat.src.tools import list_dics_functions as ldfun
 
 
-def raster_raster(expsystdic,scendic,partial_agg_flag,dam_fun_file):
-
-    # Create dic for the summary table and one for the partial aggregate table (if needed)
-    summarydic = []
-    if partial_agg_flag:
-        partialaggdic = []
+def raster_raster(syst, scen,expsystdic,scendic,partial_agg_flag):
 
     #Loop for every exposed system and every scen
-    for system in expsystdic.keys():
-        print(system)
-        for scen in scendic.keys():
-            print(scen)
+    raster_scen_list = [ras.open(scendic[haz]['path']) for haz in scendic.keys()]
 
-            #Open system and scen rasters
-            with (ras.open(expsystdic[system]['path']) as raster_system, ras.open(scendic[scen]) as raster_scen):
+    with ras.open(expsystdic['path']) as raster_system:
 
-                #Pre-process both rasters and get masks for both rasters non-values and metadata for saving the result
-                raster_system_data, raster_scen_data, mask_system,mask_scen,kwargs=preprocess(raster_system, raster_scen)
+        #Pre-process both rasters and get masks for both rasters non-values and metadata for saving the result
+        raster_system_data, raster_scen_data_list, mask_system, combined_mask, kwargs=preprocess(raster_system, raster_scen_list)
 
-                if dam_fun_file:
-                    raster_scen_data =dmfun.apply_dam_fun_file(raster_scen_data,mask_scen,
-                                                               expsystdic[system]['Damage function file'])
-                else:
-                    #Apply the damage function to the scen raster
-                    raster_scen_data =dmfun.apply_dam_fun_raster(raster_scen_data,mask_scen,
-                                                                expsystdic[system]['Damage function'])
+    for r in raster_scen_list:
+        r.close()
 
-                #Multiply the damage raster (scen*damage function) and the system raster to get the risk result raster
-                final_mask = mask_scen & mask_system #Combine scen and system no-data masks
-                results =np.where(final_mask, raster_system_data * raster_scen_data, np.nan)
+    a=0
 
-                #Create the entry for summary dictionary for this system and this scenario and add it to the summary dic
-                scensum_dic(system,expsystdic, raster_system_data,scen,results,summarydic)
+    if expsystdic['Damage function']=='file':
+        raster_vuln_data =dmfun.apply_dam_fun_file(raster_scen_data_list,combined_mask,
+                                                   expsystdic['Damage function file'],kwargs)
+    else:
+        #Apply the damage function to the scen raster
+        raster_vuln_data =dmfun.apply_dam_fun_raster(raster_scen_data_list,combined_mask,
+                                                    expsystdic['Damage function'])
 
-                if partial_agg_flag:
-                    partial_aggregates(system,expsystdic, raster_system_data,scen,results,kwargs['transform'],partialaggdic)
+    #Multiply the damage raster (scen*damage function) and the system raster to get the risk result raster
+    final_mask = combined_mask & mask_system #Combine scen and system no-data masks
+    results =np.where(final_mask, raster_system_data * raster_vuln_data, np.nan)
 
-            #Export the results array into a .tif file
-            outputs.tif_output(system + scen, results,kwargs)
+    #Create the entry for summary dictionary for this system and this scenario and add it to the summary dic
+    scensum=scensum_dic(syst,expsystdic, raster_system_data,scen,results)
 
-    # Export the summary dictionary and the aggregated partial dictionary (if needed) to a .csv file.
-    outputs.summary_output('raster_exp',expsystdic,summarydic)
+    #Export the results array into a .tif file
+    outputs.tif_output(syst + scen, results,kwargs)
+
     if partial_agg_flag:
-        outputs.partial_agg_output('raster_exp',expsystdic, partialaggdic)
+        return (scensum,
+                partial_aggregates(syst,expsystdic, raster_system_data,scen,results,kwargs['transform']))
 
-def scensum_dic(system,expsystdic, raster_system_data,scen,results,summarydic):
-    scensum = {dics.keysdic['Exposed system']: system,
-               dics.keysdic['Type of system']: expsystdic[system]['Type of system'],
-               dics.keysdic['Damage function']: expsystdic[system]['Damage function'],
-               dics.keysdic['Exposed value']: round(np.nansum(raster_system_data)),
-               dics.keysdic['Impact scenario']:scen,dics.keysdic['Impact damage']:round(np.nansum(results))}
+    return scensum
 
-    summarydic.append(scensum)
+def scensum_dic(system,expsystdic, raster_system_data,scen,results):
+    return {dics.keysdic['Exposed system']: system,
+           dics.keysdic['Type of system']: expsystdic['Type of system'],
+           dics.keysdic['Damage function']: expsystdic['Damage function'],
+           dics.keysdic['Exposed value']: round(np.nansum(raster_system_data)),
+           dics.keysdic['Impact scenario']:scen,dics.keysdic['Impact damage']:round(np.nansum(results))}
 
-def partial_aggregates(system,expsystdic,raster_system_data,scen,results,transform,partialaggdic):
+def partial_aggregates(system,expsystdic,raster_system_data,scen,results,transform):
 
-    partial_agg_map_path=input_reading.reading_folder_files('partial_agg_map', '.shp')
+    partialaggdic=[]
+
+    partial_agg_map_path=input_reading.reading_folder_files('spatial_distribution_input', '.shp')
     key = list(partial_agg_map_path.keys())[0]
     partial_agg_map_path=partial_agg_map_path[key]
 
-    partial_agg_secs_dic=input_reading.shp_to_dic(partial_agg_map_path, dics.keysdic['Section identificator'])
+    partial_agg_secs_dic,crs=input_reading.shp_to_dic(partial_agg_map_path, [dics.keysdic['Section identificator']])
     partial_agg_results=rsts.zonal_stats(str(partial_agg_map_path), results, nodata=np.nan,
                                          affine=transform,stats=['sum'])
-    key = dics.keysdic['Impact damage']
-    ldfun.add_listofdics_to_dicofdics(partial_agg_secs_dic, partial_agg_results, [key])
+    ldfun.add_listofdics_to_dicofdics(partial_agg_secs_dic, partial_agg_results, [dics.keysdic['Impact damage']])
 
     for sec in partial_agg_secs_dic.keys():
         partial_indiv_dic={dics.keysdic['Exposed system']: system,
-               dics.keysdic['Type of system']: expsystdic[system]['Type of system'],
+               dics.keysdic['Type of system']: expsystdic['Type of system'],
                dics.keysdic['Section identificator']: sec,
-               dics.keysdic['Damage function']: expsystdic[system]['Damage function'],
+               dics.keysdic['Damage function']: expsystdic['Damage function'],
                dics.keysdic['Exposed value']: round(np.nansum(raster_system_data)),
                dics.keysdic['Impact scenario']:scen,
                dics.keysdic['Impact damage']:round(partial_agg_secs_dic[sec][dics.keysdic['Impact damage']])}
         partialaggdic.append(partial_indiv_dic)
+    return partialaggdic

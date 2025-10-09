@@ -1,11 +1,14 @@
-import main_tool
+import level_3_analysis
 
 if __name__ == "__main__":
 
-    #Basic: main_tool(tool_selected,partial_agg_flag=False,zonal_stats_method='centers',zonal_stats_value='mean',dam_fun_file=FALSE)
-    #zonal_stats_method='centers' or 'all touched' only in s-r ('centers' base)
-    #partial_agg_flag = False or True for all (FALSE base)
-    #zonal_stats_value = 'mean' or 'max' only in s-r y s-s ('mean' base)
-    #dam_fun_file=FALSE or TRUE for r-r (FALSE base)
+    hazscendic = {
+        'Inundación': {'folder': 'Escenarios CROPED', 'extension': '.tif'}
+    }
 
-    main_tool.shape_raster_tool(partial_agg_flag=True)
+    params_dic = {'scenarios': [], 'horizons': [], 'return rate':['005','010','025','050','100','500'],
+                  'partial agg':True,'zonal stats method':'centers' ,'zonal stats value':'mean'}
+
+    scen_raster_dic={'ury_ppp_2020_constrained':{'Type of system':'POP','Damage function':'pop_A'}}
+
+    level_3_analysis.main(hazscendic,params_dic,scen_raster_dic)

@@ -1,66 +1,71 @@
 from ihrat.src.tools import input_reading
-import rasterstats as rsts
 from ihrat.src.tools import compute_zonal_stats
 
-def indicators_computation(risk_component,method,spacial_distrib_gdf):
-    """"data_file_type,type_of_data,agg_fields,agg_extras,main_dic=None,folder=None,external_data_entry_type=None"""
-    indicators_dic={}
+import tools
+import copy
+import pandas as pd
+
+def indicators_computation(risk_component,comp_indics_main_dic,geo_dic,geo_data_file_path,geo_data_polygon_id_field):
+    """data_file_type,type_of_data,agg_fields,agg_extras,main_dic=None,folder=None,external_data_entry_type=None"""
+
     if risk_component=='EXPOSURE':
-        indicators_dic=input_reading.reading_shapefiles_exp()
-        indicators_dic.update(input_reading.reading_tif_exp())
+        comp_folder='exp_input_data'
+    elif risk_component=='HAZARD':
+        comp_folder = 'haz_input_data'
+    elif risk_component=='VULNERABILITY':
+        comp_folder = 'vuln_input_data'
 
-    for indicator_file in indicators_dic.values():
-        if indicator_file['extension']=='.shp':
-            indicator_dic=indicator_obtention('shapefile',method,indicator_file['path'],spacial_distrib_gdf,norm_scale=None)
-        if indicator_file['extension']=='.tif':
-            indicator_dic=indicator_obtention('raster',method,indicator_file['path'],spacial_distrib_gdf,norm_scale=None)
-    """if risk_component=='HAZARD':
-        indicators_dic=input_reading.reading_folder_files('exp_input_data','.shp')
-        indicators_dic.update(input_reading.reading_folder_files('exp_input_data','.tif'))
-    if risk_component=='VULNERABILITY':
-        indicators_dic=input_reading.reading_folder_files('exp_input_data','.shp')
-        indicators_dic.update(input_reading.reading_folder_files('exp_input_data','.tif'))"""
-    a=0
+    for indicator,indicator_indiv_dic in comp_indics_main_dic.items():
+        folder=comp_folder+'//'+indicator_indiv_dic['folder']
+        indicator_indiv_dic['files'] = input_reading.reading_files(folder,('.shp','.tiff','.tif','.csv'))
+        indicator_indiv_dic['dic']=copy.deepcopy(geo_dic)
 
-def indicator_obtention(data_file_type,method,data_file,spacial_distrib_gdf,norm_scale=None):
+        present_comp = indicator_indiv_dic['present comparisons']
+        if present_comp:
+            present_dic={}
 
-    if data_file_type=='raster':
+        for data_file,data_file_info_dic in indicator_indiv_dic['files'].items():
+            if data_file_info_dic['extension']=='.csv':
 
-        if method in ['zonal average centers','zonal average all touched',]:
-            zonal_stats_value='mean'
-        elif method in ['zonal max centers','zonal max all touched']:
-            zonal_stats_value = 'max'
-        if method in ['zonal average centers','zonal max centers']:
-            zonal_stats_method='centers'
-        elif method in ['zonal average all touched','zonal max all touched']:
-            zonal_stats_method='all touched'
-        indicator_dic = compute_zonal_stats.shape_raster_zonal_stats(spacial_distrib_gdf, str(data_file), zonal_stats_method,
-                                                                   zonal_stats_value)
+                df = pd.read_csv(data_file_info_dic['path'], sep=";",encoding="latin-1")
+                df[indicator_indiv_dic['atribute key']] = pd.to_numeric(df[indicator_indiv_dic['atribute key']], errors="coerce")
+                averages = df.groupby(geo_data_polygon_id_field)[indicator_indiv_dic['atribute key']].mean()
+                zonal_stats_dic = averages.to_dict()
+            else:
+                zonal_stats_dic=zonal_stats_obtention(data_file_info_dic['extension'],indicator_indiv_dic['method'],data_file_info_dic['path'],geo_data_file_path,geo_data_polygon_id_field)
 
-    """if data_file_type=='shapefile':
+            if present_comp:
+                if data_file==indicator_indiv_dic['present file']:
+                    present_dic=zonal_stats_dic
+                else:
+                    tools.present_comp_tool(present_dic,zonal_stats_dic, present_comp)
 
-        for index, building in spacial_distrib_gdf.iterrows():
-            intersections = []
-            data_gdf=input_reading.reading_shp_to_gdf(data_file)
-            for index2, polygon in data_gdf.iterrows():
-                if method == 'zonal average':
-                    if building['geometry'].intersects(polygon['geometry']):
-                        intersections.append([building['geometry'].intersection(polygon['geometry']).area,
-                                              polygon[dics.keysdic['Impact value']]])
-                    if sum(x for x, y in intersections) == 0:
-                        system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']] = 0
+            norm_scale = indicator_indiv_dic['norm_scale']
+            if norm_scale:
+                    if present_comp and data_file==indicator_indiv_dic['present file']:
+                        pass
                     else:
-                        system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']] = (
-                                sum(x * y for x, y in intersections) / sum(x for x, y in intersections))
-                if method == 'zonal max':
-                    if building['geometry'].intersects(polygon['geometry']):
-                        intersections.append([polygon[dics.keysdic['Impact value']]])
-                    if sum(x for x in intersections) == 0:
-                        system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']] = 0
-                    else:
-                        system_dic[building[dics.keysdic['Elements ID']]][dics.keysdic['Impact value']] = max(
-                            intersections)
-    if norm_scale:
-        !!!!"""
+                        tools.normalitation_tool(zonal_stats_dic,norm_scale)
 
+            for polygon,value in zonal_stats_dic.items():
+                indicator_indiv_dic['dic'][polygon][data_file]=value
+
+def zonal_stats_obtention(data_file_type,method,data_file,geo_data_file_path,geo_data_polygon_id_field):
+
+    if method in ['zonal average centers', 'zonal average all touched']:
+        zonal_stats_value = 'mean'
+    elif method in ['zonal max centers', 'zonal max all touched']:
+        zonal_stats_value = 'max'
+    elif method in ['zonal total addition centers','zonal total addition all touched']:
+        zonal_stats_value = 'sum'
+    if method in ['zonal average centers', 'zonal max centers','zonal total addition centers']:
+        zonal_stats_method = 'centers'
+    elif method in ['zonal average all touched', 'zonal max all touched','zonal total addition all touched']:
+        zonal_stats_method = 'all touched'
+
+    if data_file_type=='.tif' or data_file_type=='.tiff':
+        indicator_dic = compute_zonal_stats.shape_raster_zonal_stats(str(geo_data_file_path), str(data_file),geo_data_polygon_id_field,
+                                                                     zonal_stats_method,zonal_stats_value)
+    elif data_file_type=='.shp':
+        indicator_dic = compute_zonal_stats.shape_shape_zonal_stats (geo_data_file_path, data_file, zonal_stats_value)
     return indicator_dic
