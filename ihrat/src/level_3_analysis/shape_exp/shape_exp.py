@@ -51,8 +51,7 @@ def shape_exp(syst,scen,expsystdic,scendic,partial_agg_flag,zonal_stats_method='
 
     # Compute the damage fraction as a result of the impact value and add it to the dic. The damage fraction
     # is computed applying a damage curve selected in the input file for each element of the system
-    for indiv_element_dic in system_dic.values():
-        dmfun.apply_damage_fun_shp(indiv_element_dic)
+    dmfun.apply_damage_fun_shp(system_dic)
 
     # Compute the economic value of the impact and add it to the dic.
     imp_damage_compute(system_dic)
