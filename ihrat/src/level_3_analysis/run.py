@@ -2,13 +2,41 @@ import level_3_analysis
 
 if __name__ == "__main__":
 
-    hazscendic = {
-        'Inundación': {'folder': 'Escenarios CROPED', 'extension': '.tif'}
+    '''hazard_input_dic = {
+        'Flooding': {
+            'folder': 'Escenarios',
+            'extension': '.tif'
+        }
     }
 
-    params_dic = {'scenarios': [], 'horizons': [], 'return rate':['005','010','025','050','100','500'],
-                  'partial agg':True,'zonal stats method':'centers' ,'zonal stats value':'mean'}
+    params_dic = {
+        'scenarios': [],
+        'horizons': [],
+        'return periods':['005'],
+        'partial agg':'external',
+        'zonal stats method':'centers', #centers or all touched
+        'zonal stats value':'mean' #mean or max
+    }'''
 
-    scen_raster_dic={'ury_ppp_2020_constrained':{'Type of system':'POP','Damage function':'pop_A'}}
+    hazard_input_dic = {
+        'Flooding': {
+            'folder': 'Escenarios',
+            'extension': '.tif'
+        }
+    }
 
-    level_3_analysis.main(hazscendic,params_dic,scen_raster_dic)
+    params_dic = {
+        'scenarios': [],
+        'horizons': [],
+        'return periods': ['5'],
+        'partial agg': True
+    }
+
+    exposure_raster_input_dic = {
+        'ury_ppp_2020_constrained': {
+            'Type of system': 'POP',
+            'Damage function': 'pop_A'
+        }
+    }
+
+    level_3_analysis.main(hazard_input_dic,params_dic,exposure_raster_input_dic)
