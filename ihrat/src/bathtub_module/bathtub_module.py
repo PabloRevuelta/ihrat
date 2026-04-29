@@ -10,7 +10,7 @@ from ihrat.src.tools import input_reading
 from ihrat.src.tools import outputs
 from ihrat.src.tools import raster_tools
 
-def bathtub_module(twl_dic, coastlines_file_name, crs, input_type):
+def bathtub_module(twl_dic, coastlines_file_name, crs, input_type,mdt_filename=None,idw_files=False):
     """
     Main module to compute coastal flooding using a bathtub approach.
 
@@ -25,11 +25,15 @@ def bathtub_module(twl_dic, coastlines_file_name, crs, input_type):
         Dictionary containing Total Water Level (TWL) data. It may include
         direct values per scenario or references to point data for interpolation.
     coastlines_file_name : str
-        Name of the coastline shapefile.
+        Name of the coastline shapefile (or GeoJSON).
     crs : rasterio.crs.CRS or str
         Target Coordinate Reference System for all spatial data.
     input_type : str
         Type of TWL input. If 'multi value', IDW interpolation is applied.
+    mdt_filename : str, optional
+        Specific DEM filename to process. If None, it searches for .tif files in 'exp_input_data'.
+    idw_files : bool, optional
+        If True, the interpolated IDW rasters will be saved to disk (default is False).
 
     Returns
     -------
@@ -37,7 +41,11 @@ def bathtub_module(twl_dic, coastlines_file_name, crs, input_type):
         Outputs flooding rasters to disk.
     """
     # Read DEM raster file path
-    dem_file_path = input_reading.reading_folder_files('exp_input_data', '.tif')
+    if mdt_filename is None:
+        dem_file_path = input_reading.reading_folder_files('exp_input_data', '.tif')
+        dem_file_path=next(iter(dem_file_path.values()))
+    else:
+        dem_file_path = Path.cwd().parent.parent.parent / 'inputs/exp_input_data' / mdt_filename
 
     # Build the coastline file path and load it as GeoDataFrame
     coastlines_file_path = Path.cwd().parent.parent.parent / 'inputs/haz_input_data' / coastlines_file_name
@@ -48,7 +56,7 @@ def bathtub_module(twl_dic, coastlines_file_name, crs, input_type):
 
     # Reproject DEM raster to target CRS
     dem_raster, meta = raster_tools.reproject_raster_crs(
-        next(iter(dem_file_path.values())), crs
+        dem_file_path, crs
     )
 
     # Create a coastal buffer (25 meters inland)
@@ -64,12 +72,12 @@ def bathtub_module(twl_dic, coastlines_file_name, crs, input_type):
 
     # If TWL input is spatial (points), interpolate using IDW
     if input_type == 'multi value':
-        twl_dic = idw_submodule(twl_dic, meta)
+        twl_dic = idw_submodule(twl_dic, idw_files, meta, mdt_filename)
 
     # Run flooding computation
-    flooding_submodule(twl_dic, dem_raster, coast_raster, meta)
+    flooding_submodule(twl_dic, dem_raster, coast_raster, meta,mdt_filename)
 
-def flooding_submodule(twl_dic, dem_raster, coast_raster, meta):
+def flooding_submodule(twl_dic, dem_raster, coast_raster, meta, mdt_filename):
     """
     Compute flooding extent and depth based on TWL and DEM.
 
@@ -88,6 +96,8 @@ def flooding_submodule(twl_dic, dem_raster, coast_raster, meta):
         Binary raster indicating coastal buffer areas (1 = coast, 0 = non-coast).
     meta : dict
         Raster metadata.
+    mdt_filename : str
+        Filename of the MDT used to be included in the output filename.
 
     Returns
     -------
@@ -98,7 +108,7 @@ def flooding_submodule(twl_dic, dem_raster, coast_raster, meta):
     meta.update(dtype="float32", nodata=np.nan)
 
     for scen, twl in twl_dic.items():
-        # Create the mask where DEM elevation is below TWL
+        # Create mask where DEM elevation is below TWL
         flood_mask = dem_raster < twl
 
         # Label connected components in the flood mask
@@ -117,9 +127,16 @@ def flooding_submodule(twl_dic, dem_raster, coast_raster, meta):
         flooded_pixels_depth = np.where(flooded_pixels_depth > 0, flooded_pixels_depth, np.nan)
 
         # Save output raster
-        outputs.tif_output(f"flooding_{scen}", flooded_pixels_depth, meta)
+        if mdt_filename is None:
+            outputs.tif_output(f"flooding_{scen}", flooded_pixels_depth, meta)
+            print(scen)
+        else:
+            name = mdt_filename.split("mdt_")[1].split(".tif")[0]
+            outputs.tif_output(f"flooding_{name}_{scen}", flooded_pixels_depth, meta)
 
-def idw_submodule(twl_dic, meta, power=2, k=12, chunk_size=100_000):
+            print(name+'_'+scen)
+            
+def idw_submodule(twl_dic,idw_files,meta,mdt_file_name,power=2, k=12, chunk_size=100_000):
     """
     Interpolate Total Water Level (TWL) values over a raster grid using IDW.
 
@@ -132,8 +149,12 @@ def idw_submodule(twl_dic, meta, power=2, k=12, chunk_size=100_000):
         Dictionary containing:
         - 'file_name': name of the shapefile with TWL points
         - 'scens_names': list of scenario names (fields in the shapefile)
+    idw_files : bool
+        If True, saves the interpolated IDW rasters to disk.
     meta : dict
         Raster metadata containing transform, width, height, and CRS.
+    mdt_file_name : str
+        Name of the MDT file to use for naming the output IDW files.
     power : int, optional
         Power parameter for IDW weighting (default is 2).
     k : int, optional
@@ -162,6 +183,8 @@ def idw_submodule(twl_dic, meta, power=2, k=12, chunk_size=100_000):
     # Load TWL point data
     twl_points_file_path = Path.cwd().parent.parent.parent / f"inputs/haz_input_data/{twl_dic['file_name']}.shp"
     twl_gdf = gpd.read_file(twl_points_file_path)
+    
+    k = min(k, len(twl_gdf))
 
     # Reproject points to match raster CRS
     twl_gdf = twl_gdf.to_crs(meta['crs'])
@@ -190,6 +213,10 @@ def idw_submodule(twl_dic, meta, power=2, k=12, chunk_size=100_000):
 
         # Compute IDW weights
         weights = (1 / dist ** power).astype(np.float32)
+        if weights.ndim == 1:
+            weights = weights[:, None]
+        if idx.ndim == 1:
+            idx = idx[:, None]
         sum_weights = np.sum(weights, axis=1).astype(np.float32)
 
         for scen in twl_dic['scens_names']:
@@ -206,8 +233,13 @@ def idw_submodule(twl_dic, meta, power=2, k=12, chunk_size=100_000):
     for scen, grid in new_twl_dic.items():
         grid_2d = grid.reshape((height, width))
         new_twl_dic[scen] = grid_2d
-
-        # Save interpolated raster
-        outputs.tif_output(f"{scen}_idw", grid_2d, meta)
+        
+        if idw_files:
+            # Save interpolated raster
+            if mdt_file_name is None:
+                outputs.tif_output(f"{scen}_idw", grid_2d, meta)
+            else:
+                name = mdt_file_name.split("mdt_")[1].split(".tif")[0]
+                outputs.tif_output(f"{name}_{scen}_idw", grid_2d, meta)
 
     return new_twl_dic

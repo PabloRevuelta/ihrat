@@ -7,38 +7,37 @@ from ihrat.src.level_3_analysis.raster_raster import raster_raster as rr
 
 state_counter=0
 
-def main(hazard_input_dic,params_dic,scen_raster_dic=None):
+def main(hazard_input_dic: dict, params_dic: dict, scen_raster_dic: dict = None) -> None:
     """
-        Main function that performs the risk analysis for multiple exposed systems
-        under different hazard scenarios.
+    Processes hazard input data, exposed systems, and calculates risk analysis based on the provided
+    parameters. The function integrates hazard data, vector and raster-based exposed systems, and 
+    computes results for defined scenarios, horizons, and return periods.
 
-        PARAMETERS
-        ----------
-        hazard_input_dic : dict
-            Dictionary containing hazard indicators and their metadata.
-            Each entry typically includes:
-                - 'folder': directory where hazard files are stored
-                - 'extension': file type ('.tif', '.shp')
-        params_dic : dict
-            Dictionary containing global configuration parameters for the analysis.
-            Expected keys include:
-                - 'scenarios': list of climate/risk scenarios
-                - 'horizons': list of time horizons
-                - 'return periods': return periods
-                - 'partial agg': boolean flag to compute partial aggregation
-                - 'zonal stats method': method used for zonal statistics
-                - 'zonal stats value': statistic to extract (mean, max, etc.)
+    Data is categorized and processed with specific methods for both types of exposed systems 
+    (vector and raster), performing zonal statistical analysis for vector data, and raster-to-raster 
+    analysis for raster data. Results are ultimately outputted as summary statistics and, if enabled, 
+    partial aggregation results.
 
-        scen_raster_dic : dict, optional
-            Required when exposed systems include raster files (.tif).
-            For each raster system, it must contain:
-                - 'Type of system'
-                - 'Damage function'
-
-        RETURNS
-        -------
-        PENDING!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        """
+    :param hazard_input_dic: (dict) Dictionary containing hazard input data. Each key represents a hazard
+        type (e.g., 'Flooding'), and its value is a dictionary with:
+        - 'folder' (str): Name of the subfolder within 'haz_input_data/' where files are located.
+        - 'extension' (str): File extension ('.tif' for raster, '.shp' for vector).
+    :param params_dic: (dict) Dictionary containing global execution parameters:
+        - 'scenarios' (list): List of climate/risk scenarios (e.g., ['RCP45']). Use [] if filenames do not depend on a scenario.
+        - 'horizons' (list): Time horizons (e.g., ['2030']). Use [] if filenames do not depend on a horizon.
+        - 'return periods' (list): List of return periods (e.g., ['100']). Use [] if filenames do not depend on a return period.
+        - 'partial agg' (bool): Whether to generate results by territorial units (True) or only global (False).
+        - 'zonal stats method' (str): For vector systems; 'centers' or 'all touched'.
+        - 'zonal stats value' (str): For vector systems; statistic to compute ('mean' or 'max').
+    :param scen_raster_dic: (dict, optional) Dictionary with metadata for raster exposure systems.
+        Keys are filenames (without .tif), and values are dictionaries with:
+        - 'Type of system' (str): Category of the system (e.g., 'POP', 'AGR').
+        - 'Damage function' (str): Name of the damage function to apply. Use 'file' to apply spatially 
+          distributed functions defined in an external shapefile.
+        - 'Damage function file' (str, optional): Name of the shapefile (without extension) in 
+          'inputs/dam_fun_files/' if 'Damage function' is set to 'file'.
+    :return: None
+    """
     # Global counter used to track progress of processed scenarios
     global state_counter
 

@@ -1,53 +1,89 @@
 import tools
 from ihrat.src.tools import input_reading
 
-import copy
+def indicator_agg(
+    risk_component,
+    type_of_data,
+    scen_hor_fields,
+    agg_extras,
+    indic_main_dic=None,
+    geo_dic=None,
+    external_data_entry_filenames=None
+):
+    """
+    Aggregates data based on the specified risk component, type of data, and additional
+    aggregation details. It processes input dictionaries organized by scenario-horizon fields and
+    performs qualitative or quantitative aggregation depending on the data type.
 
-#Entrada: datos de un indicador en varias variables
+    :param risk_component: The specific component of risk to aggregate in the data.
+    :type risk_component: str
+    :param type_of_data: Specifies the type of data to process; either 'qualitative' or 'quantitative'.
+    :type type_of_data: str
+    :param scen_hor_fields: Fields defining scenario-horizon grouping in the input data.
+    :type scen_hor_fields: dict
+    :param agg_extras: Parameters required for aggregation; can include value scales, combination
+                       matrices for qualitative data, or formulas and weights for quantitative data.
+    :type agg_extras: dict
+    :param indic_main_dic: Optional. The main dictionary of indicators to process. If not provided,
+                           it will be initialized as an empty dictionary and potentially populated
+                           with external data.
+    :type indic_main_dic: dict or None
+    :param geo_dic: Optional. Dictionary with the geospatial data structure, used as a template
+                     when external data in .csv format is being loaded.
+    :type geo_dic: dict or None
+    :param external_data_entry_filenames: Optional. List of filenames to be read as external
+                                          indicator data from the corresponding risk component folder.
+    :type external_data_entry_filenames: list of str or None
+    :return: A dictionary rearranged according to scenario-horizon fields, containing aggregated
+             results for each scenario.
+    :rtype: dict
+    """
 
-#Salida: indicador agregado
+    if indic_main_dic is None:
+        indic_main_dic = {}
+    if external_data_entry_filenames is not None:
+        # Determine the folder corresponding to the selected risk component
+        if risk_component == 'EXPOSURE':
+            comp_folder = 'exp_input_data'
+        elif risk_component == 'HAZARD':
+            comp_folder = 'haz_input_data'
+        elif risk_component == 'VULNERABILITY':
+            comp_folder = 'vuln_input_data'
+        for indic in external_data_entry_filenames:
 
-#Puede ser lo mismo, en csv o en shpapefile o venir de antes. Aquí entra en diccionario
+            name = indic.split('.')[0]
+            indic_indiv_dic=input_reading.reading_external_files(indic, comp_folder, geo_dic)
+            
+            # Store the individual indicator data in the main dictionary
+            indic_main_dic[name] = indic_indiv_dic
 
-def indicator_agg(risk_component,type_of_data,scen_hor_fields,agg_extras,indic_main_dic=None,folder=None,external_data_entry_type=None):
 
-    # external_data_entry_type==None, mantiene el main_dic como entra. Si no, lo cambia por uno leído externo
-    if external_data_entry_type == 'csv':
-        name, main_dic = input_reading.reading_input(folder, '.csv')
-    elif external_data_entry_type == 'shapefile':
-        name, main_dic, crs = input_reading.reading_input(folder, '.shp')
+    # Rearrange the input dictionary according to scenario-horizon fields
+    scen_hor_dic = tools.rearranging_dics(indic_main_dic, scen_hor_fields)
 
-    scen_hor_dic=rearranging_dics(indic_main_dic,scen_hor_fields)
+    # Iterate over each scenario-horizon dictionary
     for dic in scen_hor_dic.values():
-        values= list(next(iter(dic.values())).keys())
+        # Extract indicator names (excluding geometry)
+        values = list(next(iter(dic.values())).keys())
         values.remove('geometry')
+
+        # Perform aggregation depending on data type
         if type_of_data == 'qualitative':
-            tools.qualitative_aggregation_(dic,values, risk_component, agg_extras['value scale'],
-                                           agg_extras['combination matrix'])
+            tools.qualitative_aggregation_(
+                dic,
+                values,
+                risk_component,
+                agg_extras['value scale'],
+                agg_extras['combination matrix']
+            )
+
         elif type_of_data == 'quantitative':
-            tools.quantitative_aggregation_(dic,values, risk_component, agg_extras['formula'],
-                                            agg_extras['pond weights'])
+            tools.quantitative_aggregation_(
+                dic,
+                values,
+                risk_component,
+                agg_extras['formula'],
+                agg_extras['pond weights']
+            )
 
-    return scen_hor_dic
-
-    """if type_of_data=='qualitative':
-            agg_extras['value scale']=['low', 'medium', 'high']
-            agg_extras['combination matrix']=np.array([
-                [[0, 0, 1], [0, 1, 1], [1, 1, 2]],
-                [[0, 1, 1], [1, 1, 2], [1, 2, 2]],
-                [[1, 1, 2], [1, 2, 2], [2, 2, 2]]"""
-
-def rearranging_dics(indic_main_dic,scen_hor_fields):
-    scen_hor_dic={}
-    spatial_units_dic={spatial_unit:{'geometry':spatial_unit_dic['geometry']} for spatial_unit,spatial_unit_dic in indic_main_dic[next(iter(indic_main_dic))]['dic'].items()}
-    for scen in scen_hor_fields['scenarios']:
-        for hor in scen_hor_fields['horizons']:
-            scen_hor_dic[scen+'_'+hor]=copy.deepcopy(spatial_units_dic)
-            for indic,indic_dic in indic_main_dic.items():
-                for spatial_unit,spatial_unit_dic in indic_dic['dic'].items():
-                    for scen_hor,value in spatial_unit_dic.items():
-                        if scen in scen_hor and  hor in scen_hor:
-                            scen_hor_dic[scen + '_' + hor][spatial_unit][indic]=value
-                        if scen=='single' and hor=='single':
-                            scen_hor_dic[scen + '_' + hor][spatial_unit][indic]=value
     return scen_hor_dic
