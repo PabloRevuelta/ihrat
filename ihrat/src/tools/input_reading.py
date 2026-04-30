@@ -5,7 +5,7 @@ import fiona
 import copy
 from ihrat.src.tools import dictionaries as dics
 
-def reading_external_files(file_path, folder, geo_dic=None):
+def reading_external_files(file_path, folder,geo_data_polygon_id_field,geo_dic=None,):
     """
     Read external data files (CSV or Shapefile) and convert them to internal dictionary format.
 
@@ -21,6 +21,9 @@ def reading_external_files(file_path, folder, geo_dic=None):
         The subfolder name within the 'inputs' directory where the file is located.
     geo_dic : dict, optional
         A geographic dictionary template required for CSV processing (default is None).
+    :param geo_data_polygon_id_field: The field name in the geospatial file is used to identify
+        individual polygons for external input additions.
+    :type geo_data_polygon_id_field: str or None
 
     Returns
     -------
@@ -47,7 +50,7 @@ def reading_external_files(file_path, folder, geo_dic=None):
     elif ext == '.shp':
         # For shapefiles, use Elements ID as index and convert to dictionary
         # The dictionary structure is {ID: {attribute: value, ...}}
-        indic_indiv_dic = gpd.read_file(file_path_abs).set_index(dics.keysdic['Elements ID']).T.to_dict('dict')
+        indic_indiv_dic = gpd.read_file(file_path_abs).set_index(geo_data_polygon_id_field).T.to_dict('dict')
     else:
         raise ValueError(f"Unsupported file type: {ext}")
 

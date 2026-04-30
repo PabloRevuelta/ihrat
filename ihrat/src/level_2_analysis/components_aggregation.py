@@ -4,7 +4,9 @@ from ihrat.src.tools import input_reading
 import copy
 
 def components_dic_creation(dic_exp=None,dic_haz=None,dic_vuln=None,
-                            exp_file=None,haz_file=None,vuln_file=None,scen_hor_fields=None,geo_dic=None,):
+                            exp_file=None,haz_file=None,vuln_file=None,scen_hor_fields=None,geo_dic=None,
+                            geo_data_polygon_id_field=None
+):
     """
     Creates a consolidated dictionary by merging multiple component dictionaries (Exposure, Hazard, Vulnerability).
     If any component dictionary is not provided, it reads the data from external files using the specified
@@ -30,6 +32,9 @@ def components_dic_creation(dic_exp=None,dic_haz=None,dic_vuln=None,
     :type scen_hor_fields: dict
     :param geo_dic: Geographic dictionary template required for reading external CSV files.
     :type geo_dic: dict
+    :param geo_data_polygon_id_field: The field name in the geospatial file is used to identify
+        individual polygons for external input additions.
+    :type geo_data_polygon_id_field: str or None
     :return: A consolidated dictionary merging all risk components across scenarios and horizons.
     :rtype: dict
     """
@@ -37,21 +42,21 @@ def components_dic_creation(dic_exp=None,dic_haz=None,dic_vuln=None,
     if dic_exp is None:
         dic_exp={}
         comp_folder = 'exp_input_data'
-        dic_exp['EXPOSURE'] = input_reading.reading_external_files(exp_file, comp_folder, geo_dic)
+        dic_exp['EXPOSURE'] = input_reading.reading_external_files(exp_file, comp_folder,geo_data_polygon_id_field, geo_dic)
         dic_exp = tools.rearranging_dics(dic_exp, scen_hor_fields)
 
     # Load Hazard data if not provided
     if dic_haz is None:
         dic_haz={}
         comp_folder = 'haz_input_data'
-        dic_haz['HAZARD'] = input_reading.reading_external_files(haz_file, comp_folder, geo_dic)
+        dic_haz['HAZARD'] = input_reading.reading_external_files(haz_file, comp_folder,geo_data_polygon_id_field, geo_dic)
         dic_haz = tools.rearranging_dics(dic_haz, scen_hor_fields)
 
     # Load Vulnerability data if not provided
     if dic_vuln is None:
         dic_vuln={}
         comp_folder = 'vuln_input_data'
-        dic_vuln['VULNERABILITY'] = input_reading.reading_external_files(vuln_file, comp_folder, geo_dic)
+        dic_vuln['VULNERABILITY'] = input_reading.reading_external_files(vuln_file, comp_folder,geo_data_polygon_id_field, geo_dic)
         dic_vuln = tools.rearranging_dics(dic_vuln, scen_hor_fields)
 
     # Identify the base structure (biggest dictionary) to ensure all keys are preserved

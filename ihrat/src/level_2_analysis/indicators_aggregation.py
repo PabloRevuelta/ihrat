@@ -8,7 +8,8 @@ def indicator_agg(
     agg_extras,
     indic_main_dic=None,
     geo_dic=None,
-    external_data_entry_filenames=None
+    external_data_entry_filenames=None,
+    geo_data_polygon_id_field=None
 ):
     """
     Aggregates data based on the specified risk component, type of data, and additional
@@ -34,6 +35,9 @@ def indicator_agg(
     :param external_data_entry_filenames: Optional. List of filenames to be read as external
                                           indicator data from the corresponding risk component folder.
     :type external_data_entry_filenames: list of str or None
+    :param geo_data_polygon_id_field: The field name in the geospatial file is used to identify
+        individual polygons for external input additions.
+    :type geo_data_polygon_id_field: str or None
     :return: A dictionary rearranged according to scenario-horizon fields, containing aggregated
              results for each scenario.
     :rtype: dict
@@ -52,7 +56,7 @@ def indicator_agg(
         for indic in external_data_entry_filenames:
 
             name = indic.split('.')[0]
-            indic_indiv_dic=input_reading.reading_external_files(indic, comp_folder, geo_dic)
+            indic_indiv_dic=input_reading.reading_external_files(indic, comp_folder,geo_data_polygon_id_field,geo_dic)
             
             # Store the individual indicator data in the main dictionary
             indic_main_dic[name] = indic_indiv_dic

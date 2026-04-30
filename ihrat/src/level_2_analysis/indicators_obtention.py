@@ -151,18 +151,18 @@ def zonal_stats_obtention(indicator_indiv_dic, data_file_info_dic, geo_data_file
             geo_data_file_path,
             data_file,
             geo_data_polygon_id_field,
-            indicator_indiv_dic['shp data field name'],
+            indicator_indiv_dic['data field name'],
             zonal_stats_value
         )
     elif data_file_type == '.csv':
         # Read CSV with specific delimiter and encoding
         df = pd.read_csv(data_file_info_dic['path'], sep=";", encoding="latin-1")
         # Convert attribute column to numeric values
-        df[indicator_indiv_dic['attribute key']] = pd.to_numeric(
-            df[indicator_indiv_dic['attribute key']], errors="coerce"
+        df[indicator_indiv_dic['data field name']] = pd.to_numeric(
+            df[indicator_indiv_dic['data field name']], errors="coerce"
         )
         polygon_values = df.groupby(geo_data_polygon_id_field)[
-            indicator_indiv_dic['attribute key']
+            indicator_indiv_dic['data field name']
         ].agg(zonal_stats_value)
 
         # Convert result to dictionary
