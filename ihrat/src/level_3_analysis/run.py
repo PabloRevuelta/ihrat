@@ -1,4 +1,5 @@
 import level_3_analysis
+from ihrat.src.level_3_analysis.damage_functions.damage_functions import add_dam_fun
 
 if __name__ == "__main__":
 
@@ -79,6 +80,43 @@ if __name__ == "__main__":
             'Damage function': 'pop_A'
         }
     }
+
+    # =========================================================================================
+    # 4. ADDING DAMAGE FUNCTIONS TO THE LIBRARY (Optional)
+    # -----------------------------------------------------------------------------------------
+    # Damage functions are used to compute the damage fraction based on hazard impact values.
+    # They are stored in 'damage_functions/damage_functions_dictionary.json'.
+    #
+    # You can add new functions by placing CSV files in 'inputs/dam_fun_files/'.
+    # The 'add_dam_fun' function will read these CSVs and update the JSON dictionary.
+    #
+    # INPUT FILES FORMAT (Damage Functions .csv):
+    # - A CSV file can contain one or more damage functions (one per row).
+    # - Required columns:
+    #     - 'name': Unique name of the damage function (e.g., 'residential_flood').
+    #     - 'variables': Semicolon-separated variable names (e.g., 'x' or 'x;y').
+    #     - 'values': Semicolon-separated output values (damage fraction, usually 0 to 1).
+    #     - 'application': Type of application (e.g., 'Absolute', 'Relative').
+    #     - 'type': Type of function (e.g., 'interpolation').
+    #     - 'interpolation_type': Type of interpolation (e.g., 'linear').
+    #     - '<variable_name>': For each variable in 'variables', a column with 
+    #                          semicolon-separated input values.
+    #     - 'units': Measurement units (e.g., '€/m2', '% damage').
+
+    #
+    # - Optional metadata columns:
+    #     - 'origen': Source of the damage function.
+    #     - 'region': Geographic area (e.g., 'Spain', 'Cuba').
+    #     - 'property type': Category of the affected property (e.g., 'Residential building').
+    #     - 'asset': Type of asset (e.g., 'Building Content', 'Building').
+    #
+    # - Example CSV row:
+    #   name,variables,values,application,type,interpolation_type,x
+    #   my_fun,x,0;0.5;1,Absolute,interpolation,linear,0;1;2
+    # =========================================================================================
+    add_dam_fun(overwrite=False)
+
+
 
     # Execute Level 3 Analysis
     level_3_analysis.main(hazard_input_dic, params_dic, exposure_raster_input_dic)

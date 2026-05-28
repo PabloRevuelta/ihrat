@@ -1,11 +1,13 @@
 import numpy as np
+import pandas as pd
+import os
 from pathlib import Path
 import geopandas as gpd
 from rasterio.features import geometry_mask
 import json
 from scipy.interpolate import LinearNDInterpolator, interp1d
 
-from ihrat.src.tools import dictionaries as dics
+from ihrat.src.tools import dictionaries as dics, input_reading
 
 
 class FunctionLibrary:
@@ -66,13 +68,13 @@ class FunctionLibrary:
         # --------------------------------------------------------------
         # 2. Retrieve function metadata from index
         # --------------------------------------------------------------
-        fdata = self.index[name]
-        tipo = fdata["type"]
-
-        # --------------------------------------------------------------
         # 3. Build callable depending on the function type
         #    Currently supports multidimensional interpolation.
         # --------------------------------------------------------------
+        # --------------------------------------------------------------
+        fdata = self.index[name]
+        tipo = fdata["type"]
+
         f=None
         if tipo == "interpolation":
             # Damage values associated with interpolation points
@@ -270,3 +272,76 @@ def apply_dam_fun_file(raster_scen_data_list,combined_mask,dm_fun_file,kwargs):
         )
 
     return raster_scen_data
+
+def add_dam_fun(overwrite=False):
+    """
+    Read damage function CSV files and update the damage functions JSON dictionary.
+
+    The function:
+    1. Locates the JSON dictionary file.
+    2. Reads all CSV files from the 'dam_fun_files' folder.
+    3. Parses each damage function's name, variables, and values.
+    4. Updates the JSON dictionary, optionally overwriting existing entries.
+
+    Parameters:
+    - overwrite: boolean, if True, existing functions in the JSON will be updated.
+    """
+    json_path = Path.cwd() / 'damage_functions//damage_functions_dictionary.json'
+
+    txt_files = input_reading.reading_folder_files('dam_fun_files', '.csv')
+
+    # If the JSON already exists, load it; otherwise, initialize it
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            json_dic = json.load(f)
+    else:
+        json_dic = {"functions": []}
+
+    damage_functions = {fn['name']: fn for fn in json_dic['functions']}
+
+    required_fields = ['name', 'variables', 'values', 'application', 'type', 'interpolation_type', 'units']
+
+    for file_path in txt_files.values():
+
+        df = pd.read_csv(file_path)
+
+        for _, row in df.iterrows():
+            fn = row.to_dict()
+
+            # Required fields validation
+            missing = [field for field in required_fields if field not in fn or pd.isna(fn[field])]
+            if missing:
+                print(f"Skipping row: missing required fields {missing}")
+                continue
+
+            fn['values'] = [float(v) for v in str(fn['values']).split(';')]
+            fn['variables'] = [v.strip() for v in str(fn['variables']).split(';')]
+            valid = True
+            for var in fn['variables']:
+                if var not in fn or pd.isna(fn[var]):
+                    print(f"Skipping '{fn['name']}': missing variable column '{var}'")
+                    valid = False
+                fn[var] = [float(v) for v in str(fn[var]).split(';')]
+            if not valid:
+                continue
+            # Clean up optional fields that might be NaN from CSV
+            for key in list(fn.keys()):
+                if key not in required_fields and key not in fn['variables'] and pd.isna(fn[key]):
+                    del fn[key]
+
+            if fn['name'] in damage_functions:
+                if not overwrite:
+                    print(f"Skipping '{fn['name']}': already exists")
+                    continue
+                print(f"Overwriting '{fn['name']}'")
+
+            damage_functions[fn['name']] = fn
+
+    json_dic['functions'] = list(damage_functions.values())
+
+    # Save the updated JSON
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(json_dic, f, ensure_ascii=False, indent=4)
+
+    print(f"JSON updated: {len(json_dic['functions'])} functions in total")
+

@@ -3,8 +3,6 @@ from pathlib import Path
 import csv
 import fiona
 import copy
-from ihrat.src.tools import dictionaries as dics
-
 def reading_external_files(file_path, folder,geo_data_polygon_id_field,geo_dic=None,):
     """
     Read external data files (CSV or Shapefile) and convert them to internal dictionary format.
