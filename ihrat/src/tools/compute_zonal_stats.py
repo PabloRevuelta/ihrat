@@ -133,10 +133,11 @@ def shape_raster_zonal_stats(
     # ------------------------------------------------------------------
     # 1. Compute zonal statistics depending on selected method
     # ------------------------------------------------------------------
-    zonal_stats=None
+    gdf = gpd.read_file(str(spatial_units_data))
+    zonal_stats=[]
     if zonal_stats_method=='centers':
         zonal_stats = rsts.zonal_stats(
-            str(spatial_units_data),
+            gdf,
             str(values_data),
             stats=[zonal_stats_value])
     elif zonal_stats_method=='all touched':

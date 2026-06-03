@@ -68,13 +68,13 @@ class FunctionLibrary:
         # --------------------------------------------------------------
         # 2. Retrieve function metadata from index
         # --------------------------------------------------------------
-        # 3. Build callable depending on the function type
-        #    Currently supports multidimensional interpolation.
-        # --------------------------------------------------------------
-        # --------------------------------------------------------------
         fdata = self.index[name]
         tipo = fdata["type"]
 
+        # --------------------------------------------------------------
+        # 3. Build callable depending on the function type
+        #    Currently supports multidimensional interpolation.
+        # --------------------------------------------------------------
         f=None
         if tipo == "interpolation":
             # Damage values associated with interpolation points
@@ -109,28 +109,33 @@ class FunctionLibrary:
 
 def apply_damage_fun_shp(system_dic):
     """
-        Compute the damage fraction for each exposed element in a vector system
-        by applying the corresponding damage function to the hazard impact values.
+    Compute the damage for each exposed element in a vector system
+    by applying the corresponding damage function to the hazard impact values.
 
-        The computed damage fraction is added in-place to each element's dictionary.
+    The function supports two types of damage functions:
+    - Relative: returns a damage fraction [0-1] that is multiplied by the exposed value.
+    - Absolute: returns a damage value directly in monetary units that is multiplied by the exposed value.
 
-        PARAMETERS
-        ----------
-        system_dic : dict
-            Dictionary of exposed elements where:
-            - key → element ID
-            - value → dictionary containing:
-                • hazard impact values
-                • exposed value
-                • damage function name
-                • geometry and metadata
+    The computed damage fields are added in-place to each element's dictionary.
 
-        RETURNS
-        -------
-        None
-            The function modifies `system_dic` in place by adding the
-            'Damage fraction' field to each element.
-        """
+    PARAMETERS
+    ----------
+    system_dic : dict
+        Dictionary of exposed elements where:
+        - key → element ID
+        - value → dictionary containing:
+            • hazard impact values
+            • exposed value
+            • damage function name
+            • geometry and metadata
+
+    RETURNS
+    -------
+    None
+        The function modifies `system_dic` in place by adding:
+        - 'Damage fraction' and 'Impact damage' for Relative functions.
+        - 'Relative damage' and 'Impact damage' for Absolute functions.
+    """
     # ------------------------------------------------------------------
     # 1. Identify which keys correspond to hazard values
     #    (i.e., exclude metadata and non-hazard attributes)
@@ -157,16 +162,30 @@ def apply_damage_fun_shp(system_dic):
     for indiv_element_dic in system_dic.values():
 
         # Retrieve damage function name assigned to the element
-        f_name=indiv_element_dic[dics.keysdic['Damage function']]
+        f_name = indiv_element_dic[dics.keysdic['Damage function']]
 
-        # Collect hazard input values in the expected order
-        input_values=[indiv_element_dic[key] for key in haz_keys]
+        # Retrieve application type: 'Relative' or 'Absolute'
+        application = lib.index[f_name]['application']
+
+        # Collect hazard input values in the order expected by the function
+        input_values = [indiv_element_dic[key] for key in haz_keys]
 
         # Get the callable damage function from the library
-        f=lib.get(f_name)
+        f = lib.get(f_name)
 
-        # Compute and store the damage fraction (rounded to 3 decimals)
-        indiv_element_dic[dics.keysdic['Damage fraction']]=round(float(f(*input_values)),3)
+        if application == 'Relative':
+            # Function returns a fraction [0-1]
+            # Impact damage = damage fraction × exposed value
+            indiv_element_dic[dics.keysdic['Damage fraction']] = round(float(f(*input_values)), 3)
+            indiv_element_dic[dics.keysdic['Impact damage']] = (
+                    indiv_element_dic[dics.keysdic['Damage fraction']] * indiv_element_dic[dics.keysdic['Exposed value']])
+
+        elif application == 'Absolute':
+            # Function returns a damage value in monetary units per m²
+            # Impact damage = damage value × exposed value
+            indiv_element_dic[dics.keysdic['Relative damage']] = round(float(f(*input_values)), 3)
+            indiv_element_dic[dics.keysdic['Impact damage']] = (
+                    indiv_element_dic[dics.keysdic['Relative damage']] * indiv_element_dic[dics.keysdic['Exposed value']])
 
 def apply_dam_fun_raster(raster_scen_data_list,combined_mask,dm_fun):
     """

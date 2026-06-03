@@ -10,31 +10,41 @@ state_counter=0
 def main(hazard_input_dic: dict, params_dic: dict, scen_raster_dic: dict = None) -> None:
     """
     Processes hazard input data, exposed systems, and calculates risk analysis based on the provided
-    parameters. The function integrates hazard data, vector and raster-based exposed systems, and 
+    parameters. The function integrates hazard data, vector and raster-based exposed systems, and
     computes results for defined scenarios, horizons, and return periods.
 
-    Data is categorized and processed with specific methods for both types of exposed systems 
-    (vector and raster), performing zonal statistical analysis for vector data, and raster-to-raster 
-    analysis for raster data. Results are ultimately outputted as summary statistics and, if enabled, 
-    partial aggregation results.
+    Data is categorized and processed with specific methods for both types of exposed systems:
+    - Vector systems (.shp, .geojson): zonal statistics are applied to extract hazard values
+      at element locations, followed by damage function application.
+    - Raster systems (.tif): raster-to-raster analysis is performed pixel-wise using the
+      specified damage function, which can be uniform or spatially distributed via a shapefile.
+
+    Damage functions support two application types:
+    - Relative: returns a damage fraction [0-1] multiplied by the exposed value.
+    - Absolute: returns a damage value in monetary units multiplied by the exposed value.
+
+    Results are exported as summary statistics and, if enabled, partial aggregation results
+    by territorial units.
 
     :param hazard_input_dic: (dict) Dictionary containing hazard input data. Each key represents a hazard
         type (e.g., 'Flooding'), and its value is a dictionary with:
         - 'folder' (str): Name of the subfolder within 'haz_input_data/' where files are located.
         - 'extension' (str): File extension ('.tif' for raster, '.shp' for vector).
     :param params_dic: (dict) Dictionary containing global execution parameters:
-        - 'scenarios' (list): List of climate/risk scenarios (e.g., ['RCP45']). Use [] if filenames do not depend on a scenario.
-        - 'horizons' (list): Time horizons (e.g., ['2030']). Use [] if filenames do not depend on a horizon.
-        - 'return periods' (list): List of return periods (e.g., ['100']). Use [] if filenames do not depend on a return period.
-        - 'partial agg' (bool): Whether to generate results by territorial units (True) or only global (False).
-        - 'zonal stats method' (str): For vector systems; 'centers' or 'all touched'.
-        - 'zonal stats value' (str): For vector systems; statistic to compute ('mean' or 'max').
+    - 'scenarios' (list): List of climate/risk scenarios (e.g., ['RCP45']). Use [] if filenames do not depend on a scenario.
+    - 'horizons' (list): Time horizons (e.g., ['2030']). Use [] if filenames do not depend on a horizon.
+    - 'return periods' (list): List of return periods (e.g., ['100']). Use [] if filenames do not depend on a return period.
+    - 'percentiles' (list): List of percentiles (e.g., ['50', '95']). Use [] if filenames do not depend on a percentile.
+    - 'partial agg' (bool): Whether to generate results by territorial units (True) or only global (False).
+    - 'zonal stats method' (str): For vector systems; 'centers' or 'all touched'.
+    - 'zonal stats value' (str): For vector systems; statistic to compute ('mean' or 'max').
+
     :param scen_raster_dic: (dict, optional) Dictionary with metadata for raster exposure systems.
         Keys are filenames (without .tif), and values are dictionaries with:
         - 'Type of system' (str): Category of the system (e.g., 'POP', 'AGR').
-        - 'Damage function' (str): Name of the damage function to apply. Use 'file' to apply spatially 
+        - 'Damage function' (str): Name of the damage function to apply. Use 'file' to apply spatially
           distributed functions defined in an external shapefile.
-        - 'Damage function file' (str, optional): Name of the shapefile (without extension) in 
+        - 'Damage function file' (str, optional): Name of the shapefile (without extension) in
           'inputs/dam_fun_files/' if 'Damage function' is set to 'file'.
     :return: None
     """
@@ -46,13 +56,13 @@ def main(hazard_input_dic: dict, params_dic: dict, scen_raster_dic: dict = None)
     # ------------------------------------------------------------------
     for indicator_indiv_dic in hazard_input_dic.values():
         indicator_indiv_dic['files'] =input_reading.reading_files('haz_input_data/'+indicator_indiv_dic['folder'],indicator_indiv_dic['extension'])
-    # Rearrange hazard dictionary according to scenarios, horizons, and return rates
-    hazard_input_dic=rearranging_dics(hazard_input_dic,params_dic['scenarios'],params_dic['horizons'],params_dic['return periods'])
+    # Rearrange hazard dictionary according to scenarios, horizons, return rates and percentiles
+    hazard_input_dic=rearranging_dics(hazard_input_dic,params_dic['scenarios'],params_dic['horizons'],params_dic['return periods'],params_dic['percentiles'])
 
     # ------------------------------------------------------------------
-    # 2. Load exposed systems (vector .shp and raster .tif)
+    # 2. Load exposed systems (vector .shp, .geojson and raster .tif)
     # ------------------------------------------------------------------
-    expsystdic=input_reading.reading_files('exp_input_data', ('.shp','.tif'))
+    expsystdic=input_reading.reading_files('exp_input_data', ('.shp','.geojson','.tif'))
 
     # Containers for outputs
     summarydic = [] # Global summary results
@@ -63,9 +73,9 @@ def main(hazard_input_dic: dict, params_dic: dict, scen_raster_dic: dict = None)
     # ------------------------------------------------------------------
     for syst, syst_dic in expsystdic.items():
         # --------------------------------------------------------------
-        # CASE A: Vector exposed system (.shp)
+        # CASE A: Vector exposed system (.shp,.geojson)
         # --------------------------------------------------------------
-        if syst_dic['extension'] == '.shp':
+        if syst_dic['extension'] == '.shp' or syst_dic['extension'] == '.geojson':
 
             for scen_hor_rp,scen_hor_rp_dic in hazard_input_dic.items():
                 # Perform risk analysis using zonal statistics
@@ -154,54 +164,101 @@ def output_fields_keys(fields,dic):
             fieldkeys.append(dics.keysoutputdic[field])
     return fieldkeys
 
-def rearranging_dics(hazard_input_dic, scenarios, horizons, return_rates):
+def parse_file_params(file_name):
     """
-        Reorganize the hazard dictionary by grouping files according to
-        scenario, time horizon, and return rate combinations.
+    Extract hazard file parameters from a filename by position from the end.
 
-        PARAMETERS
-        ----------
-        hazard_input_dic : dict
-            Dictionary of hazard indicators. Each hazard contains a 'files'
-            dictionary with filenames and metadata.
+    Expected filename format: {type}_{location}_{RP}_{SCENARIO}_{PERCENTILE}_{HORIZON}
+    Example: 'flooding_Martil_RP100_RCP45_50_2050'
 
-        scenarios : list or None
-            Climate/risk scenarios to filter. If None or empty, treated as [''].
+    PARAMETERS
+    ----------
+    file_name : str
+        Filename without extension.
 
-        horizons : list or None
-            Time horizons to filter. If None or empty, treated as [''].
+    RETURNS
+    -------
+    dict or None
+        Dictionary with keys 'rp', 'scenario', 'percentile', 'horizon'
+        extracted from the last 4 tokens. Returns None if the filename
+        does not have the expected minimum number of tokens.
+    """
+    tokens = file_name.split('_')
 
-        return_rates : list or None
-            Return periods to filter. If None or empty, treated as [''].
+    # Minimum 6 tokens required: type + location + RP + SCENARIO + PERCENTILE + HORIZON
+    if len(tokens) >= 6:
+        return {
+            'rp':         tokens[-4],
+            'scenario':   tokens[-3],
+            'percentile': tokens[-2],
+            'horizon':    tokens[-1]
+        }
+    return None
 
-        RETURNS
-        -------
-        dict
-            Nested dictionary structured as:
-                { "scenario_horizon_return": { hazard_name : file_metadata } }
-        """
-    # Dictionary that will store the reorganized structure
+
+def rearranging_dics(hazard_input_dic, scenarios, horizons, return_rates, percentiles):
+    """
+    Reorganize the hazard input dictionary by scenario, horizon, return period,
+    and percentile combinations.
+
+    For each combination of the provided parameters, the function searches all
+    hazard files and assigns those whose filename matches the combination to the
+    corresponding key in the output dictionary.
+
+    PARAMETERS
+    ----------
+    hazard_input_dic : dict
+        Dictionary of hazard indicators. Each value contains a 'files' sub-dictionary
+        where keys are filenames and values are file metadata dictionaries.
+    scenarios : list of str
+        List of climate scenarios (e.g., ['RCP45', 'RCP85']). Use [] or None if
+        filenames do not depend on a scenario.
+    horizons : list of str
+        List of time horizons (e.g., ['2030', '2050']). Use [] or None if
+        filenames do not depend on a horizon.
+    return_rates : list of str
+        List of return periods (e.g., ['10', '100']). Use [] or None if
+        filenames do not depend on a return period.
+    percentiles : list of str
+        List of percentiles (e.g., ['50', '95']). Use [] or None if
+        filenames do not depend on a percentile.
+
+    RETURNS
+    -------
+    dict
+        Dictionary where:
+        - Keys are strings combining the active parameters joined by '_'
+          (e.g., 'RCP45_2050_100_50').
+        - Values are dictionaries mapping each hazard indicator to its
+          corresponding file metadata for that combination.
+    """
     scen_hor_ret_dic = {}
-    # ------------------------------------------------------------------
-    # 1. Iterate through all combinations of scenarios, horizons, return periods
-    #    If any list is empty/None, replace with [''] to allow matching
-    # ------------------------------------------------------------------
+
+    # Iterate over all parameter combinations
+    # Empty string ('') is used as placeholder when a parameter is not active
     for scen in (scenarios or ['']):
         for hor in (horizons or ['']):
             for ret in (return_rates or ['']):
-                # Build combined key, avoiding extra underscores if empty
-                key = '_'.join(filter(None, [scen, hor, ret]))
-                # Initialize dictionary for this combination
-                scen_hor_ret_dic[key] = {}
+                for pct in (percentiles or ['']):
 
-                # ------------------------------------------------------
-                # 2. Search matching files inside each hazard indicator
-                # ------------------------------------------------------
-                for haz, haz_dic in hazard_input_dic.items():
-                    for file_name, file_dic in haz_dic['files'].items():
-                        # Check that all non-empty filters appear in filename
-                        if all(p in file_name for p in [scen, hor, ret] if p):
-                            # Store the matching file under the hazard name
-                            scen_hor_ret_dic[key][haz] = file_dic
+                    # Build combination key, ignoring empty placeholders
+                    key = '_'.join(filter(None, [scen, hor, ret, pct]))
+                    scen_hor_ret_dic[key] = {}
+
+                    # Search all hazard files for those matching this combination
+                    for haz, haz_dic in hazard_input_dic.items():
+                        for file_name, file_dic in haz_dic['files'].items():
+
+                            # Extract parameters from filename
+                            p = parse_file_params(file_name)
+                            if p is None:
+                                continue
+
+                            # Assign file to combination if all parameters match
+                            if (p['scenario']   == scen and
+                                p['horizon']     == hor  and
+                                p['rp']          == ret  and
+                                p['percentile']  == pct):
+                                scen_hor_ret_dic[key][haz] = file_dic
 
     return scen_hor_ret_dic

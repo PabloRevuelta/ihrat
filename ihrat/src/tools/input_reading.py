@@ -102,7 +102,7 @@ def reading_files(folder,extensions):
 
     This function retrieves all files in the given folder that match the provided list
     of extensions. It returns a dictionary containing metadata for each file. For
-    shapefiles (`.shp`), additional metadata such as the coordinate reference system
+    shapefiles (`.shp`) or geojsons ('.geojson'), additional metadata such as the coordinate reference system
     (CRS) is included.
 
     :param folder: The folder path from which files will be retrieved.
@@ -110,7 +110,7 @@ def reading_files(folder,extensions):
     :param extensions: A list or tuple of file extensions to filter files in the folder.
     :type extensions: list[str] | tuple[str, ...]
     :return: A dictionary of filenames as keys and associated metadata as values. Metadata
-        includes the file path, file extension, and optionally the CRS (for `.shp` files).
+        includes the file path, file extension, and optionally the CRS (for `.shp`,'.geojson' files).
     :rtype: dict
     """
 
@@ -123,8 +123,8 @@ def reading_files(folder,extensions):
     # --------------------------------------------------------------
     extended_dic={}
     for name, path in files_dic.items():
-        # Case A: Shapefile → include CRS information
-        if path.suffix=='.shp':
+        # Case A: Shapefile or Geojson → include CRS information
+        if path.suffix=='.shp' or path.suffix=='.geojson':
             with fiona.open(path) as src:
                 extended_dic[name]={'path':path, 'crs':src.crs, 'extension':path.suffix}
         # Case B: Other raster/vector types → only store basic info
@@ -160,7 +160,7 @@ def reading_shp_to_dic(folder, keys):
     # Convert shapefile to dictionary using selected keys
     return shp_to_dic(file, keys), file
 
-def shp_to_dic(file,keys):
+def shp_to_dic(file, keys, optional_keys=None):
     """
     Converts a specified set of columns from a shapefile into a nested dictionary,
     where the first key from the provided column names is used as the index for
@@ -169,9 +169,11 @@ def shp_to_dic(file,keys):
 
     :param file: The path to the shapefile to be read. Must be supported by GeoPandas.
     :type file: str
-    :param keys: A list of column names to extract from the shapefile. The first key
-        in the list is used as the unique identifier for the dictionary.
+    :param keys: Columns that must all be present. The first key is used as index.
     :type keys: list[str]
+    :param optional_keys: Columns where at least one must be present. If None,
+        no optional columns are required.
+    :type optional_keys: list[str] or None
     :return: A tuple containing:
         - A nested dictionary representation of the specified columns from the
           shapefile.
@@ -183,15 +185,30 @@ def shp_to_dic(file,keys):
     # ------------------------------------------------------------------
     geodataframe = gpd.read_file(file)
     # Store Coordinate Reference System for later spatial outputs
-    crs=geodataframe.crs
+    crs = geodataframe.crs
+
+    # Validate required fields
+    missing_required = [k for k in keys if k not in geodataframe.columns]
+    if missing_required:
+        raise ValueError(f"Missing required fields: {missing_required}")
+
+    # Validate and filter optional fields
+    present_optional = []
+    if optional_keys is not None:
+        present_optional = [k for k in optional_keys if k in geodataframe.columns]
+        if not present_optional:
+            raise ValueError(f"At least one of these fields must be present: {optional_keys}")
+
     # ------------------------------------------------------------------
     # 2. Convert selected columns into dictionary format
     #    - Select only requested fields
     #    - Set the first key as index (unique element ID)
     #    - Transpose and convert to nested dictionary
     # ------------------------------------------------------------------
-    dic = geodataframe[keys].set_index(keys[0]).T.to_dict('dict')
-    return dic,crs
+    all_keys = keys + present_optional
+    dic = geodataframe[all_keys].set_index(keys[0]).T.to_dict('dict')
+
+    return dic, crs
 
 def csv_to_dic(file,geo_dic):
     """

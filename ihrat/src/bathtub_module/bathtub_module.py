@@ -96,9 +96,8 @@ def flooding_submodule(twl_dic, dem_raster, coast_raster, meta, mdt_filename):
         Binary raster indicating coastal buffer areas (1 = coast, 0 = non-coast).
     meta : dict
         Raster metadata.
-    mdt_filename : str
-        Filename of the MDT used to be included in the output filename.
-
+    mdt_filename : str or None
+        Filename of the MDT used to be included in the output filename
     Returns
     -------
     None
@@ -131,7 +130,7 @@ def flooding_submodule(twl_dic, dem_raster, coast_raster, meta, mdt_filename):
             outputs.tif_output(f"flooding_{scen}", flooded_pixels_depth, meta)
             print(scen)
         else:
-            name = mdt_filename.split("mdt_")[1].split(".tif")[0]
+            name = mdt_filename.split(".tif")[0]
             outputs.tif_output(f"flooding_{name}_{scen}", flooded_pixels_depth, meta)
 
             print(name+'_'+scen)
@@ -153,7 +152,7 @@ def idw_submodule(twl_dic,idw_files,meta,mdt_file_name,power=2, k=12, chunk_size
         If True, saves the interpolated IDW rasters to disk.
     meta : dict
         Raster metadata containing transform, width, height, and CRS.
-    mdt_file_name : str
+    mdt_file_name : str or None
         Name of the MDT file to use for naming the output IDW files.
     power : int, optional
         Power parameter for IDW weighting (default is 2).
@@ -239,7 +238,7 @@ def idw_submodule(twl_dic,idw_files,meta,mdt_file_name,power=2, k=12, chunk_size
             if mdt_file_name is None:
                 outputs.tif_output(f"{scen}_idw", grid_2d, meta)
             else:
-                name = mdt_file_name.split("mdt_")[1].split(".tif")[0]
+                name = mdt_file_name.split(".tif")[0]
                 outputs.tif_output(f"{name}_{scen}_idw", grid_2d, meta)
 
     return new_twl_dic

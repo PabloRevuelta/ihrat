@@ -57,7 +57,7 @@ def shapefile_output(
     # --------------------------------------------------------------
     # 1. Define output path
     # --------------------------------------------------------------
-    namefile=filename+'.shp'
+    namefile=filename+'.geojson'
     path = Path.cwd().parent.parent.parent / 'results/shps' / namefile
 
     # --------------------------------------------------------------
@@ -80,13 +80,24 @@ def shapefile_output(
     # 4. Define column ordering
     # --------------------------------------------------------------
     # Base output fields
-    keys_list=[dics.keysdic['Elements ID'], dics.keysdic['Type of system'],
-               dics.keysdic['Exposed value'], dics.keysdic['Impact scenario'],
-               dics.keysdic['Damage function'],dics.keysdic['Damage fraction'], dics.keysdic['Impact damage'],'geometry']
+    keys_list=[
+        dics.keysdic['Elements ID'],
+        dics.keysdic['Type of system'],
+        dics.keysdic['Exposed value'],
+        dics.keysdic['Area'],
+        dics.keysdic['Impact scenario'],
+        dics.keysdic['Damage function'],
+        dics.keysdic['Damage fraction'],
+        dics.keysdic['Relative damage'],
+        dics.keysdic['Impact damage'],
+        'geometry'
+    ]
     # Identify hazard-related fields dynamically
     haz_keys = [k for k in next(iter(dic.values())).keys() if k not in keys_list]
     # Insert hazard keys before damage function column
-    keys_list[4:4] = haz_keys
+    keys_list[5:5] = haz_keys
+    # Filter out columns not present in the GeoDataFrame
+    keys_list = [k for k in keys_list if k in gdf.columns]
     # Reorder GeoDataFrame columns
     gdf = gdf[keys_list]
 
@@ -94,11 +105,6 @@ def shapefile_output(
     # 5. Assign CRS
     # --------------------------------------------------------------
     gdf=gdf.set_crs(crs)
-
-    # --------------------------------------------------------------
-    # 5. Assign CRS
-    # --------------------------------------------------------------
-    gdf.to_file(path)
 
     # --------------------------------------------------------------
     # 7. Optional external spatial aggregation
@@ -163,11 +169,13 @@ def csv_output(filename,fields,new_field_names,dic):
                     or new_field_names[i] in dics.keysoutputdic['Exposed value'].values()
                     or new_field_names[i] in dics.keysoutputdic['Impact damage'].values()
                 ):
-                    row[new_field_names[i]]=sub_dict[
-                        dics.keysdic[fields[i]]
-                    ]
+                    mapped_key = dics.keysdic.get(fields[i])
+                    if mapped_key is None or mapped_key not in sub_dict:
+                        continue
+                    row[new_field_names[i]] = sub_dict[mapped_key]
                 else:
-                    # Otherwise retrieve directly from sub-dictionary
+                    if fields[i] not in sub_dict:
+                        continue
                     row[new_field_names[i]] = sub_dict[fields[i]]
             writer.writerow(row)
 

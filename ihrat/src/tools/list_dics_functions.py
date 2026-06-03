@@ -80,30 +80,6 @@ def add_dic_to_dicofdics(dicofdics,dic,key):
     for clave in dicofdics:
             dicofdics[clave][key] = dic[clave]
 
-def product_columns_dic(dic,key1,key2):
-    """
-        Multiply two fields for each sub-dictionary in a dictionary and
-        return a new dictionary with the products.
-
-        PARAMETERS
-        ----------
-        dic : dict of dict
-            Dictionary of dictionaries containing numeric values.
-
-        key1, key2 : hashable
-            Keys corresponding to the fields to multiply.
-
-        RETURNS
-        -------
-        dict
-            Dictionary where each key maps to the product of the two specified fields.
-        """
-    product_dic = {}
-    for key, sub_dic in dic.items():
-        product = round(sub_dic[key1] * sub_dic[key2], 3)
-        product_dic[key] = product
-    return product_dic
-
 def change_keys_dic(dic,old_key,new_key):
     """
         Rename a key in all sub-dictionaries of a dictionary.

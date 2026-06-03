@@ -48,6 +48,7 @@ if __name__ == "__main__":
         'scenarios': [],
         'horizons': [],
         'return periods': ['5'],
+        'percentiles':[],
         'partial agg': True,
         'zonal stats method': 'centers',
         'zonal stats value': 'mean'
